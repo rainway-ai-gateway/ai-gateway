@@ -1,0 +1,1279 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_DORIS",
+      "label": "Doris",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "mysql",
+      "pluginName": "MySQL"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "barchart",
+      "name": "Bar chart",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "piechart",
+      "name": "Pie chart",
+      "version": ""
+    },
+    {
+      "type": "datasource",
+      "id": "mysql",
+      "name": "MySQL",
+      "version": "1.0.0"
+    },
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "8.0.0"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "links": [],
+      "maxPerRow": 4,
+      "options": {},
+      "title": "全局概览",
+      "type": "row"
+    },
+    {
+      "id": 2,
+      "gridPos": {
+        "h": 7,
+        "w": 5,
+        "x": 0,
+        "y": 1
+      },
+      "links": [],
+      "title": "QPS",
+      "type": "timeseries",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "time_series",
+          "rawSql": "SELECT ts_min AS time, SUM(request_count) / 60 AS qps FROM bfe_ai_metrics_1m WHERE ts_min >= $__timeFrom() AND ts_min < $__timeTo() AND ai_mapped_model IN ($model) AND ai_apikey IN ($apikey) GROUP BY ts_min ORDER BY ts_min",
+          "refId": "A",
+          "table": "bfe_ai_metrics_1m"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "single"
+        },
+        "fillGradient": 1,
+        "lineWidth": 2
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "gridPos": {
+        "h": 7,
+        "w": 5,
+        "x": 5,
+        "y": 1
+      },
+      "links": [],
+      "title": "错误率",
+      "type": "timeseries",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "time_series",
+          "rawSql": "SELECT ts_min AS time, IFNULL(SUM(error_count) / NULLIF(SUM(request_count), 0), 0) AS error_rate FROM bfe_ai_metrics_1m WHERE ts_min >= $__timeFrom() AND ts_min < $__timeTo() AND ai_mapped_model IN ($model) AND ai_apikey IN ($apikey) GROUP BY ts_min ORDER BY ts_min",
+          "refId": "A",
+          "table": "bfe_ai_metrics_1m"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "single"
+        },
+        "fillGradient": 1,
+        "lineWidth": 2
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.05
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "gridPos": {
+        "h": 7,
+        "w": 5,
+        "x": 10,
+        "y": 1
+      },
+      "links": [],
+      "title": "TPM",
+      "type": "timeseries",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "time_series",
+          "rawSql": "SELECT ts_min AS time, SUM(total_tokens) AS tokens_per_minute FROM bfe_ai_metrics_1m WHERE ts_min >= $__timeFrom() AND ts_min < $__timeTo() AND ai_mapped_model IN ($model) AND ai_apikey IN ($apikey) GROUP BY ts_min ORDER BY ts_min",
+          "refId": "A",
+          "table": "bfe_ai_metrics_1m"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "single"
+        },
+        "fillGradient": 1,
+        "lineWidth": 2
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "gridPos": {
+        "h": 7,
+        "w": 5,
+        "x": 15,
+        "y": 1
+      },
+      "links": [],
+      "title": "限流命中",
+      "type": "timeseries",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "time_series",
+          "rawSql": "SELECT ts_min AS time, SUM(rate_limit_hits) AS rate_limit_hits FROM bfe_ai_metrics_1m WHERE ts_min >= $__timeFrom() AND ts_min < $__timeTo() AND ai_mapped_model IN ($model) AND ai_apikey IN ($apikey) GROUP BY ts_min ORDER BY ts_min",
+          "refId": "A",
+          "table": "bfe_ai_metrics_1m"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "single"
+        },
+        "fillGradient": 1,
+        "lineWidth": 2
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 16,
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "links": [],
+      "title": "认证拒绝",
+      "type": "timeseries",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "time_series",
+          "rawSql": "SELECT ts_min AS time, SUM(auth_reject_count) AS auth_reject_count FROM bfe_ai_metrics_1m WHERE ts_min >= $__timeFrom() AND ts_min < $__timeTo() AND ai_mapped_model IN ($model) AND ai_apikey IN ($apikey) GROUP BY ts_min ORDER BY ts_min",
+          "refId": "A",
+          "table": "bfe_ai_metrics_1m"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "single"
+        },
+        "fillGradient": 1,
+        "lineWidth": 2
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "links": [],
+      "maxPerRow": 4,
+      "options": {},
+      "title": "延迟分布",
+      "type": "row"
+    },
+    {
+      "id": 7,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "links": [],
+      "title": "P50/P90/P99 全链路延迟 (ms)",
+      "type": "timeseries",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroup(log_time, '1m') AS time, PERCENTILE_APPROX(all_time, 0.50) AS p50, PERCENTILE_APPROX(all_time, 0.90) AS p90, PERCENTILE_APPROX(all_time, 0.99) AS p99 FROM bfe_ai_request_log WHERE log_time >= $__timeFrom() AND log_time < $__timeTo() AND ai_mapped_model IN ($model) AND ai_apikey IN ($apikey) AND all_time IS NOT NULL GROUP BY time ORDER BY time",
+          "refId": "A",
+          "table": "bfe_ai_request_log"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        },
+        "fillGradient": 0,
+        "lineWidth": 2
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p50"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p90"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p99"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "links": [],
+      "title": "TTFT 分位延迟 (ms，仅流式)",
+      "type": "timeseries",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroup(log_time, '1m') AS time, PERCENTILE_APPROX(ai_ttft_us, 0.50) / 1000 AS ttft_p50_ms, PERCENTILE_APPROX(ai_ttft_us, 0.90) / 1000 AS ttft_p90_ms, PERCENTILE_APPROX(ai_ttft_us, 0.99) / 1000 AS ttft_p99_ms FROM bfe_ai_request_log WHERE log_time >= $__timeFrom() AND log_time < $__timeTo() AND ai_stream = 1 AND ai_mapped_model IN ($model) AND ai_ttft_us IS NOT NULL GROUP BY time ORDER BY time",
+          "refId": "A",
+          "table": "bfe_ai_request_log"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        },
+        "fillGradient": 0,
+        "lineWidth": 2
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 17,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "links": [],
+      "title": "TPOT 分位延迟 (ms，仅流式)",
+      "type": "timeseries",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroup(log_time, '1m') AS time, PERCENTILE_APPROX(ai_tpot_us, 0.50) / 1000 AS tpot_p50_ms, PERCENTILE_APPROX(ai_tpot_us, 0.90) / 1000 AS tpot_p90_ms, PERCENTILE_APPROX(ai_tpot_us, 0.99) / 1000 AS tpot_p99_ms FROM bfe_ai_request_log WHERE log_time >= $__timeFrom() AND log_time < $__timeTo() AND ai_stream = 1 AND ai_mapped_model IN ($model) AND ai_tpot_us IS NOT NULL GROUP BY time ORDER BY time",
+          "refId": "A",
+          "table": "bfe_ai_request_log"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        },
+        "fillGradient": 0,
+        "lineWidth": 2
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "links": [],
+      "maxPerRow": 4,
+      "options": {},
+      "title": "组件耗时与 Token 吞吐",
+      "type": "row"
+    },
+    {
+      "id": 10,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "links": [],
+      "title": "各组件平均耗时 (ms)",
+      "type": "barchart",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "table",
+          "rawSql": "SELECT $__timeGroup(log_time, '30m') AS time, AVG(read_client_time) AS avg_read_client, AVG(proxy_delay_time) AS avg_proxy_delay, AVG(connect_backend_time) AS avg_connect, AVG(backend_serve_time) AS avg_backend, AVG(cluster_serve_time) AS avg_cluster_serve, AVG(write_client_time) AS avg_write_client FROM bfe_ai_request_log WHERE log_time >= $__timeFrom() AND log_time < $__timeTo() AND ai_mapped_model IN ($model) GROUP BY time ORDER BY time",
+          "refId": "A",
+          "table": "bfe_ai_request_log"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        },
+        "stacking": {
+          "mode": "normal"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 18,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "links": [],
+      "title": "Token 吞吐 (TPM)",
+      "type": "timeseries",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "time_series",
+          "rawSql": "SELECT ts_min AS time, SUM(prompt_tokens) AS prompt_tokens, SUM(output_tokens) AS output_tokens, SUM(total_tokens) AS total_tokens FROM bfe_ai_metrics_1m WHERE ts_min >= $__timeFrom() AND ts_min < $__timeTo() AND ai_mapped_model IN ($model) AND ai_apikey IN ($apikey) GROUP BY ts_min ORDER BY ts_min",
+          "refId": "A",
+          "table": "bfe_ai_metrics_1m"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        },
+        "fillGradient": 1,
+        "lineWidth": 2,
+        "stacking": {
+          "mode": "normal"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 11,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      },
+      "links": [],
+      "maxPerRow": 4,
+      "options": {},
+      "title": "维度下钻",
+      "type": "row"
+    },
+    {
+      "id": 12,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "links": [],
+      "title": "按模型 QPS Top 10",
+      "type": "table",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "table",
+          "rawSql": "SELECT ai_mapped_model AS model, SUM(request_count) AS total_requests, SUM(total_tokens) AS total_tokens, SUM(error_count) AS error_count, IFNULL(SUM(error_count) / NULLIF(SUM(request_count), 0), 0) AS error_rate FROM bfe_ai_metrics_1m WHERE ts_min >= $__timeFrom() AND ts_min < $__timeTo() GROUP BY ai_mapped_model ORDER BY total_requests DESC LIMIT 10",
+          "refId": "A",
+          "table": "bfe_ai_metrics_1m"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "total_requests"
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "error_rate"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "links": [],
+      "title": "按 apikey Token 消耗 Top 20",
+      "type": "barchart",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "table",
+          "rawSql": "SELECT ai_apikey, SUM(total_tokens) AS total_tokens, SUM(request_count) AS requests FROM bfe_ai_metrics_1m WHERE ts_min >= $__timeFrom() AND ts_min < $__timeTo() AND ai_apikey != '' GROUP BY ai_apikey ORDER BY total_tokens DESC LIMIT 20",
+          "refId": "A",
+          "table": "bfe_ai_metrics_1m"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "hidden"
+        },
+        "tooltip": {
+          "mode": "single"
+        },
+        "orientation": "horizontal",
+        "sortBy": {
+          "desc": true
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 19,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 39
+      },
+      "links": [],
+      "title": "按 Host 请求量 Top 10",
+      "type": "barchart",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "table",
+          "rawSql": "SELECT header_host AS host, SUM(request_count) AS requests FROM bfe_ai_metrics_1m WHERE ts_min >= $__timeFrom() AND ts_min < $__timeTo() AND header_host != '' AND header_host IN ($host) GROUP BY header_host ORDER BY requests DESC LIMIT 10",
+          "refId": "A",
+          "table": "bfe_ai_metrics_1m"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "hidden"
+        },
+        "tooltip": {
+          "mode": "single"
+        },
+        "orientation": "horizontal",
+        "sortBy": {
+          "desc": true
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 20,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 39
+      },
+      "links": [],
+      "title": "按 URI 请求量 Top 20",
+      "type": "table",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "table",
+          "rawSql": "SELECT origin_uri AS uri, COUNT(*) AS requests, SUM(CASE WHEN err_code != '' THEN 1 ELSE 0 END) AS error_count, IFNULL(SUM(CASE WHEN err_code != '' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 0) AS error_rate FROM bfe_ai_request_log WHERE log_time >= $__timeFrom() AND log_time < $__timeTo() AND origin_uri != '' AND origin_uri LIKE '%$uri%' GROUP BY origin_uri ORDER BY requests DESC LIMIT 20",
+          "refId": "A",
+          "table": "bfe_ai_request_log"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "requests"
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "error_rate"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 21,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 46
+      },
+      "links": [],
+      "title": "按状态码分布",
+      "type": "piechart",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "table",
+          "rawSql": "SELECT res_status_code, SUM(request_count) AS count FROM bfe_ai_metrics_1m WHERE ts_min >= $__timeFrom() AND ts_min < $__timeTo() GROUP BY res_status_code ORDER BY count DESC",
+          "refId": "A",
+          "table": "bfe_ai_metrics_1m"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 22,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 46
+      },
+      "links": [],
+      "title": "按响应 Content-Type 分布",
+      "type": "piechart",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "table",
+          "rawSql": "SELECT res_content_type, COUNT(*) AS count FROM bfe_ai_request_log WHERE log_time >= $__timeFrom() AND log_time < $__timeTo() AND res_content_type != '' AND res_content_type IN ($res_content_type) GROUP BY res_content_type ORDER BY count DESC",
+          "refId": "A",
+          "table": "bfe_ai_request_log"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 14,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 53
+      },
+      "links": [],
+      "maxPerRow": 4,
+      "options": {},
+      "title": "明细回溯",
+      "type": "row"
+    },
+    {
+      "id": 15,
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 54
+      },
+      "links": [],
+      "title": "日志明细",
+      "type": "table",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "table",
+          "rawSql": "SELECT log_time, logid, ai_apikey, ai_requested_model, ai_mapped_model, res_status_code, err_code FROM bfe_ai_request_log WHERE log_time >= $__timeFrom() AND log_time < $__timeTo() AND ai_apikey IN ($apikey) AND ai_mapped_model IN ($model) ORDER BY log_time DESC LIMIT 100",
+          "refId": "A",
+          "table": "bfe_ai_request_log"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "log_time"
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "all_time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 23,
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 63
+      },
+      "links": [],
+      "title": "限流命中展开 (UNNEST)",
+      "type": "table",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "table",
+          "rawSql": "SELECT log_time, logid, ai_apikey, ai_mapped_model, origin_uri, hit.rate_limit_policy_id, hit.rate_limit_type, hit.rule_names FROM bfe_ai_request_log CROSS JOIN UNNEST(ai_rate_limit_hits) AS hit WHERE log_time >= $__timeFrom() AND log_time < $__timeTo() AND ARRAY_SIZE(ai_rate_limit_hits) > 0 AND ai_apikey IN ($apikey) ORDER BY log_time DESC LIMIT 100",
+          "refId": "A",
+          "table": "bfe_ai_request_log"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "log_time"
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 24,
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 71
+      },
+      "links": [],
+      "title": "认证拒绝明细",
+      "type": "table",
+      "datasource": "Doris",
+      "targets": [
+        {
+          "dataset": "bfe_observability",
+          "datasource": {
+            "type": "mysql",
+            "uid": "${DS_DORIS}"
+          },
+          "editorMode": "builder",
+          "format": "table",
+          "rawSql": "SELECT log_time, logid, ai_apikey, ai_auth_reject_reason, ai_auth_reject_quota_plans FROM bfe_ai_request_log WHERE log_time >= $__timeFrom() AND log_time < $__timeTo() AND ai_auth_reject_reason IS NOT NULL AND ai_auth_reject_reason != '' AND ai_apikey IN ($apikey) ORDER BY log_time DESC LIMIT 100",
+          "refId": "A",
+          "table": "bfe_ai_request_log"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "log_time"
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "*",
+          "value": "*"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "模型",
+        "multi": true,
+        "name": "model",
+        "options": [],
+        "query": "SELECT DISTINCT ai_mapped_model FROM bfe_ai_metrics_1m WHERE ts_min >= NOW() - INTERVAL 1 HOUR ORDER BY ai_mapped_model",
+        "queryValue": "",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "query",
+        "datasource": "Doris"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "all",
+          "value": "all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "API Key",
+        "multi": false,
+        "name": "apikey",
+        "options": [],
+        "query": "SELECT DISTINCT ai_apikey FROM bfe_ai_metrics_1m WHERE ts_min >= NOW() - INTERVAL 1 HOUR AND ai_apikey != '' ORDER BY ai_apikey",
+        "queryValue": "",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "query",
+        "datasource": "Doris"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "all",
+          "value": "all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "集群",
+        "multi": false,
+        "name": "cluster",
+        "options": [],
+        "query": "SELECT DISTINCT cluster FROM bfe_ai_metrics_1m WHERE ts_min >= NOW() - INTERVAL 1 HOUR AND cluster != '' ORDER BY cluster",
+        "queryValue": "",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "query",
+        "datasource": "Doris"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "all",
+          "value": "all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "产品",
+        "multi": false,
+        "name": "product",
+        "options": [],
+        "query": "SELECT DISTINCT product FROM bfe_ai_metrics_1m WHERE ts_min >= NOW() - INTERVAL 1 HOUR AND product != '' ORDER BY product",
+        "queryValue": "",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "query",
+        "datasource": "Doris"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "all",
+          "value": "all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Host",
+        "multi": false,
+        "name": "host",
+        "options": [],
+        "query": "SELECT DISTINCT header_host FROM bfe_ai_metrics_1m WHERE ts_min >= NOW() - INTERVAL 1 HOUR AND header_host != '' ORDER BY header_host",
+        "queryValue": "",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "query",
+        "datasource": "Doris"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "all",
+          "value": "all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Content-Type",
+        "multi": false,
+        "name": "res_content_type",
+        "options": [],
+        "query": "SELECT DISTINCT res_content_type FROM bfe_ai_request_log WHERE log_time >= NOW() - INTERVAL 1 HOUR AND res_content_type != '' ORDER BY res_content_type",
+        "queryValue": "",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "query",
+        "datasource": "Doris"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 0,
+        "label": "URI",
+        "name": "uri",
+        "skipUrlSync": false,
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "BFE AI Gateway 可观测仪表盘",
+  "uid": "bfe-ai-gateway-observability",
+  "version": 2
+}

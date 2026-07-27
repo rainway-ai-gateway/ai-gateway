@@ -1,0 +1,460 @@
+# Copyright(c) 2024 Beijing Yingfei Networks Technology Co.Ltd. All rights reserved.
+# Licensed under the Apache License, Version 2.0.
+
+# Doris (FE + BE + init) — optional observability, applies to default namespace.
+# Usage: kubectl apply -f deploy/doris.yaml
+# Cleanup: kubectl delete -f deploy/doris.yaml
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: doris-init-sql
+  namespace: default
+data:
+  01_create_database.sql: |
+    CREATE DATABASE IF NOT EXISTS bfe_observability;
+    USE bfe_observability;
+
+  02_create_detail_table.sql: |
+    CREATE TABLE IF NOT EXISTS bfe_ai_request_log (
+        hostid                  VARCHAR(256),
+        log_time                DATETIME,
+        ai_apikey               VARCHAR(256),
+        ai_requested_model      VARCHAR(128),
+        logid                   BIGINT,
+        product                 VARCHAR(64),
+        client_ip               VARCHAR(64),
+        is_trust_src_ip         TINYINT,
+        err_code                VARCHAR(64),
+        err_msg                 VARCHAR(512),
+        proto                   VARCHAR(16),
+        header_host             VARCHAR(256),
+        origin_uri              VARCHAR(2048),
+        final_uri               VARCHAR(2048),
+        method                  VARCHAR(16),
+        content_type            VARCHAR(128),
+        x_forward_for           VARCHAR(1024),
+        accept_language         VARCHAR(256),
+        authorization           VARCHAR(1024),
+        transfer_encoding       VARCHAR(64),
+        req_header_len          INT,
+        req_body_len            INT,
+        cluster                 VARCHAR(256),
+        sub_cluster             VARCHAR(256),
+        backend_info            VARCHAR(256),
+        backend_retry           TINYINT,
+        res_status_code         SMALLINT,
+        res_header_len          INT,
+        res_body_len            INT,
+        res_content_type        VARCHAR(128),
+        all_time                INT,
+        read_client_time        INT,
+        cluster_serve_time      INT,
+        backend_serve_time      INT,
+        write_client_time       INT,
+        connect_backend_time    INT,
+        proxy_delay_time        INT,
+        ai_apikeytags           ARRAY<STRUCT<tagname:VARCHAR(128),tagvalue:VARCHAR(128)>>,
+        ai_mapped_model         VARCHAR(128),
+        ai_stream               TINYINT,
+        ai_prompt_tokens        BIGINT,
+        ai_output_tokens        BIGINT,
+        ai_total_tokens         BIGINT,
+        ai_ttft_us              BIGINT,
+        ai_tpot_us              BIGINT,
+        ai_rate_limit_hits      ARRAY<STRUCT<rate_limit_policy_id:VARCHAR(128),rate_limit_type:VARCHAR(32),rule_names:ARRAY<VARCHAR(128)>>>,
+        ai_auth_reject_reason   VARCHAR(256),
+        ai_auth_reject_quota_plans ARRAY<VARCHAR(128)>
+    )
+    UNIQUE KEY(hostid, log_time, ai_apikey, ai_requested_model)
+    PARTITION BY RANGE(log_time) ()
+    DISTRIBUTED BY HASH(ai_apikey) BUCKETS 32
+    PROPERTIES (
+        "replication_num" = "1",
+        "dynamic_partition.enable" = "true",
+        "dynamic_partition.time_unit" = "DAY",
+        "dynamic_partition.start" = "-7",
+        "dynamic_partition.end" = "3",
+        "dynamic_partition.prefix" = "p",
+        "dynamic_partition.buckets" = "32",
+        "compression" = "zstd"
+    );
+
+  03_create_routine_load.sql: |
+    CREATE ROUTINE LOAD bfe_ai_log_load ON bfe_ai_request_log
+    COLUMNS(
+        logid, timestamp, log_time = FROM_UNIXTIME(timestamp),
+        product, hostid, client_ip, is_trust_src_ip,
+        err_code, err_msg, req_header_len, req_body_len,
+        proto, header_host, origin_uri, final_uri, method,
+        content_type, x_forward_for, accept_language, authorization,
+        transfer_encoding, cluster, sub_cluster, backend_info,
+        backend_retry, res_status_code, res_header_len,
+        res_body_len, res_content_type, all_time,
+        read_client_time, cluster_serve_time, backend_serve_time,
+        write_client_time, connect_backend_time, proxy_delay_time,
+        ai_apikey, ai_apikeytags, ai_requested_model, ai_mapped_model,
+        ai_stream, ai_prompt_tokens, ai_output_tokens, ai_total_tokens,
+        ai_ttft_us, ai_tpot_us, ai_rate_limit_hits,
+        ai_auth_reject_reason, ai_auth_reject_quota_plans
+    )
+    PROPERTIES (
+        "desired_concurrent_number" = "2",
+        "max_batch_interval" = "20",
+        "max_batch_rows" = "250000",
+        "max_error_number" = "1000",
+        "format" = "json"
+    )
+    FROM KAFKA (
+        "kafka_broker_list" = "kafka.ai-gateway-system.svc.cluster.local:9092",
+        "kafka_topic" = "bfe_ai_log",
+        "property.group.id" = "doris_bfe_ai_log",
+        "property.client.id" = "doris_bfe_ai_log"
+    );
+
+  04_create_aggregate_table.sql: |
+    CREATE TABLE IF NOT EXISTS bfe_ai_metrics_1m (
+        ts_min             DATETIME        COMMENT '分钟时间桶',
+        hostid             VARCHAR(256)    COMMENT '主机标识',
+        ai_apikey          VARCHAR(128)    COMMENT 'API Key',
+        ai_requested_model VARCHAR(128)    COMMENT '请求模型',
+        ai_mapped_model    VARCHAR(128)    COMMENT '路由模型',
+        ai_stream          TINYINT         COMMENT '流式标识',
+        product            VARCHAR(64)     COMMENT '产品线',
+        cluster            VARCHAR(64)     COMMENT '集群',
+        sub_cluster        VARCHAR(64)     COMMENT '子集群',
+        backend_info       VARCHAR(256)    COMMENT '后端节点',
+        method             VARCHAR(16)     COMMENT 'HTTP 方法',
+        res_status_code    SMALLINT        COMMENT '响应状态码',
+        err_code           VARCHAR(64)     COMMENT '错误码',
+        header_host        VARCHAR(256)    COMMENT '请求 Host',
+        tagslot1name       VARCHAR(128)    COMMENT '标签槽位1: tagname',
+        tagslot1value      VARCHAR(128)    COMMENT '标签槽位1: tagvalue',
+        tagslot2name       VARCHAR(128)    COMMENT '标签槽位2: tagname',
+        tagslot2value      VARCHAR(128)    COMMENT '标签槽位2: tagvalue',
+        tagslot3name       VARCHAR(128)    COMMENT '标签槽位3: tagname',
+        tagslot3value      VARCHAR(128)    COMMENT '标签槽位3: tagvalue',
+        tagslot4name       VARCHAR(128)    COMMENT '标签槽位4: tagname',
+        tagslot4value      VARCHAR(128)    COMMENT '标签槽位4: tagvalue',
+        tagslot5name       VARCHAR(128)    COMMENT '标签槽位5: tagname',
+        tagslot5value      VARCHAR(128)    COMMENT '标签槽位5: tagvalue',
+        rate_limit_policy_id VARCHAR(128)  COMMENT '限流策略ID',
+        rate_limit_type   VARCHAR(32)     COMMENT '限流类型',
+        rate_limit_rule_name VARCHAR(128)  COMMENT '限流规则名',
+        ai_auth_reject_reason VARCHAR(256) COMMENT '认证拒绝原因',
+        ai_auth_reject_quota_plans_slot1 VARCHAR(128) COMMENT '被拒绝配额计划槽位1',
+        ai_auth_reject_quota_plans_slot2 VARCHAR(128) COMMENT '被拒绝配额计划槽位2',
+        ai_auth_reject_quota_plans_slot3 VARCHAR(128) COMMENT '被拒绝配额计划槽位3',
+        ai_auth_reject_quota_plans_slot4 VARCHAR(128) COMMENT '被拒绝配额计划槽位4',
+        ai_auth_reject_quota_plans_slot5 VARCHAR(128) COMMENT '被拒绝配额计划槽位5',
+
+        request_count      BIGINT   SUM    COMMENT '请求数',
+        error_count        BIGINT   SUM    COMMENT '错误数',
+        auth_reject_count  BIGINT   SUM    COMMENT '认证拒绝数',
+        prompt_tokens      BIGINT   SUM    COMMENT '输入 Token 累计',
+        output_tokens      BIGINT   SUM    COMMENT '输出 Token 累计',
+        total_tokens       BIGINT   SUM    COMMENT '总 Token 累计',
+        ttft_us_sum        BIGINT   SUM    COMMENT 'TTFT 累计（微秒）',
+        tpot_us_sum        BIGINT   SUM    COMMENT 'TPOT 累计（微秒）',
+        req_header_bytes   BIGINT   SUM    COMMENT '请求头字节累计',
+        req_body_bytes     BIGINT   SUM    COMMENT '请求体字节累计',
+        res_header_bytes   BIGINT   SUM    COMMENT '响应头字节累计',
+        res_body_bytes     BIGINT   SUM    COMMENT '响应体字节累计',
+        rate_limit_hits    BIGINT   SUM    COMMENT '限流命中次数',
+        backend_retries    BIGINT   SUM    COMMENT '后端重试总次数',
+        all_time_sum       BIGINT   SUM    COMMENT '总耗时累计（毫秒）',
+        cluster_serve_sum  BIGINT   SUM    COMMENT '集群层耗时累计',
+        backend_serve_sum  BIGINT   SUM    COMMENT '后端耗时累计'
+    )
+    AGGREGATE KEY(ts_min, hostid, ai_apikey, ai_requested_model, ai_mapped_model, ai_stream,
+                  product, cluster, sub_cluster, backend_info, method, res_status_code,
+                  err_code, header_host,
+                  tagslot1name, tagslot1value, tagslot2name, tagslot2value,
+                  tagslot3name, tagslot3value, tagslot4name, tagslot4value,
+                  tagslot5name, tagslot5value,
+                  rate_limit_policy_id, rate_limit_type, rate_limit_rule_name,
+                  ai_auth_reject_reason,
+                  ai_auth_reject_quota_plans_slot1, ai_auth_reject_quota_plans_slot2,
+                  ai_auth_reject_quota_plans_slot3, ai_auth_reject_quota_plans_slot4,
+                  ai_auth_reject_quota_plans_slot5)
+    PARTITION BY RANGE(ts_min) ()
+    DISTRIBUTED BY HASH(ai_apikey) BUCKETS 16
+    PROPERTIES (
+        "replication_num" = "1",
+        "dynamic_partition.enable" = "true",
+        "dynamic_partition.time_unit" = "DAY",
+        "dynamic_partition.start" = "-7",
+        "dynamic_partition.end" = "3",
+        "dynamic_partition.prefix" = "p",
+        "dynamic_partition.buckets" = "16",
+        "compression" = "zstd"
+    );
+
+  05_create_insert_job.sql: |
+    CREATE JOB bfe_ai_metrics_1m_job
+    ON SCHEDULE EVERY 1 MINUTE
+    DO
+    INSERT INTO bfe_ai_metrics_1m
+    SELECT
+        DATE_TRUNC(log_time, 'minute')       AS ts_min,
+        COALESCE(hostid, '')                 AS hostid,
+        COALESCE(ai_apikey, '')              AS ai_apikey,
+        COALESCE(ai_requested_model, '')     AS ai_requested_model,
+        COALESCE(ai_mapped_model, '')        AS ai_mapped_model,
+        COALESCE(ai_stream, 0)               AS ai_stream,
+        COALESCE(product, '')                AS product,
+        COALESCE(cluster, '')                AS cluster,
+        COALESCE(sub_cluster, '')            AS sub_cluster,
+        COALESCE(backend_info, '')           AS backend_info,
+        COALESCE(method, '')                 AS method,
+        COALESCE(res_status_code, 0)         AS res_status_code,
+        COALESCE(err_code, '')               AS err_code,
+        COALESCE(header_host, '')            AS header_host,
+        COALESCE(ELEMENT_AT(ai_apikeytags, 1).tagname, '')  AS tagslot1name,
+        COALESCE(ELEMENT_AT(ai_apikeytags, 1).tagvalue, '') AS tagslot1value,
+        COALESCE(ELEMENT_AT(ai_apikeytags, 2).tagname, '')  AS tagslot2name,
+        COALESCE(ELEMENT_AT(ai_apikeytags, 2).tagvalue, '') AS tagslot2value,
+        COALESCE(ELEMENT_AT(ai_apikeytags, 3).tagname, '')  AS tagslot3name,
+        COALESCE(ELEMENT_AT(ai_apikeytags, 3).tagvalue, '') AS tagslot3value,
+        COALESCE(ELEMENT_AT(ai_apikeytags, 4).tagname, '')  AS tagslot4name,
+        COALESCE(ELEMENT_AT(ai_apikeytags, 4).tagvalue, '') AS tagslot4value,
+        COALESCE(ELEMENT_AT(ai_apikeytags, 5).tagname, '')  AS tagslot5name,
+        COALESCE(ELEMENT_AT(ai_apikeytags, 5).tagvalue, '') AS tagslot5value,
+        COALESCE(ELEMENT_AT(ai_rate_limit_hits, 1).rate_limit_policy_id, '') AS rate_limit_policy_id,
+        COALESCE(ELEMENT_AT(ai_rate_limit_hits, 1).rate_limit_type, '')      AS rate_limit_type,
+        COALESCE(ELEMENT_AT(ELEMENT_AT(ai_rate_limit_hits, 1).rule_names, 1), '') AS rate_limit_rule_name,
+        COALESCE(ai_auth_reject_reason, '')  AS ai_auth_reject_reason,
+        COALESCE(ELEMENT_AT(ai_auth_reject_quota_plans, 1), '') AS ai_auth_reject_quota_plans_slot1,
+        COALESCE(ELEMENT_AT(ai_auth_reject_quota_plans, 2), '') AS ai_auth_reject_quota_plans_slot2,
+        COALESCE(ELEMENT_AT(ai_auth_reject_quota_plans, 3), '') AS ai_auth_reject_quota_plans_slot3,
+        COALESCE(ELEMENT_AT(ai_auth_reject_quota_plans, 4), '') AS ai_auth_reject_quota_plans_slot4,
+        COALESCE(ELEMENT_AT(ai_auth_reject_quota_plans, 5), '') AS ai_auth_reject_quota_plans_slot5,
+        COUNT(1)                             AS request_count,
+        SUM(CASE WHEN err_code != '' AND err_code IS NOT NULL THEN 1 ELSE 0 END) AS error_count,
+        SUM(CASE WHEN ai_auth_reject_reason != '' AND ai_auth_reject_reason IS NOT NULL THEN 1 ELSE 0 END) AS auth_reject_count,
+        SUM(COALESCE(ai_prompt_tokens, 0))   AS prompt_tokens,
+        SUM(COALESCE(ai_output_tokens, 0))   AS output_tokens,
+        SUM(COALESCE(ai_total_tokens, 0))    AS total_tokens,
+        SUM(COALESCE(ai_ttft_us, 0))         AS ttft_us_sum,
+        SUM(COALESCE(ai_tpot_us, 0))         AS tpot_us_sum,
+        SUM(COALESCE(req_header_len, 0))     AS req_header_bytes,
+        SUM(COALESCE(req_body_len, 0))       AS req_body_bytes,
+        SUM(COALESCE(res_header_len, 0))     AS res_header_bytes,
+        SUM(COALESCE(res_body_len, 0))       AS res_body_bytes,
+        SUM(CASE WHEN ARRAY_SIZE(ai_rate_limit_hits) > 0 THEN 1 ELSE 0 END) AS rate_limit_hits,
+        SUM(COALESCE(backend_retry, 0))      AS backend_retries,
+        SUM(COALESCE(all_time, 0))           AS all_time_sum,
+        SUM(COALESCE(cluster_serve_time, 0)) AS cluster_serve_sum,
+        SUM(COALESCE(backend_serve_time, 0)) AS backend_serve_sum
+    FROM bfe_ai_request_log
+    WHERE log_time >= DATE_TRUNC(NOW(), 'minute') - INTERVAL 1 MINUTE
+      AND log_time <  DATE_TRUNC(NOW(), 'minute')
+    GROUP BY ts_min, hostid, ai_apikey, ai_requested_model, ai_mapped_model, ai_stream,
+             product, cluster, sub_cluster, backend_info, method, res_status_code,
+             err_code, header_host,
+             tagslot1name, tagslot1value, tagslot2name, tagslot2value,
+             tagslot3name, tagslot3value, tagslot4name, tagslot4value,
+             tagslot5name, tagslot5value,
+             rate_limit_policy_id, rate_limit_type, rate_limit_rule_name,
+             ai_auth_reject_reason,
+             ai_auth_reject_quota_plans_slot1, ai_auth_reject_quota_plans_slot2,
+             ai_auth_reject_quota_plans_slot3, ai_auth_reject_quota_plans_slot4,
+             ai_auth_reject_quota_plans_slot5;
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: doris-fe
+  namespace: default
+  labels:
+    app: doris-fe
+spec:
+  serviceName: doris-fe
+  replicas: 1
+  selector:
+    matchLabels:
+      app: doris-fe
+  template:
+    metadata:
+      labels:
+        app: doris-fe
+    spec:
+      containers:
+      - name: doris-fe
+        image: ghcr.io/cc14514/doris-fe:4.1.3
+        command: ["bash", "/opt/apache-doris/fe_entrypoint.sh", "doris-fe-0.doris-fe.default.svc.cluster.local"]
+        ports:
+        - name: http
+          containerPort: 8030
+        - name: mysql
+          containerPort: 9030
+        volumeMounts:
+        - name: doris-fe-meta
+          mountPath: /opt/apache-doris/fe/doris-meta
+      volumes:
+      - name: doris-fe-meta
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: doris-fe
+  namespace: default
+spec:
+  clusterIP: None
+  selector:
+    app: doris-fe
+  ports:
+  - name: http
+    port: 8030
+    targetPort: 8030
+  - name: mysql
+    port: 9030
+    targetPort: 9030
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: doris-fe-web
+  namespace: default
+spec:
+  selector:
+    app: doris-fe
+  ports:
+  - name: http
+    port: 8030
+    targetPort: 8030
+    nodePort: 30803
+  type: NodePort
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: doris-be
+  namespace: default
+  labels:
+    app: doris-be
+spec:
+  serviceName: doris-be
+  replicas: 1
+  selector:
+    matchLabels:
+      app: doris-be
+  template:
+    metadata:
+      labels:
+        app: doris-be
+    spec:
+      initContainers:
+      - name: wait-fe
+        image: ghcr.io/cc14514/mysql:8
+        command:
+          - sh
+          - -c
+          - |
+            echo "Waiting for Doris FE..."
+            until mysqladmin ping -h doris-fe.default.svc.cluster.local -P 9030 -uroot --silent; do
+              echo "  FE not ready, retrying in 5s..."
+              sleep 5
+            done
+            echo "Doris FE ready"
+      containers:
+      - name: doris-be
+        image: ghcr.io/cc14514/doris-be:4.1.3
+        command: ["bash", "/opt/apache-doris/be_entrypoint.sh", "doris-fe-0.doris-fe.default.svc.cluster.local"]
+        ports:
+        - name: http
+          containerPort: 8040
+        - name: heartbeat
+          containerPort: 9050
+        env:
+        - name: FE_SERVERS
+          value: "fe:1:doris-fe.default.svc.cluster.local:9010"
+        volumeMounts:
+        - name: doris-be-storage
+          mountPath: /opt/apache-doris/be/storage
+      volumes:
+      - name: doris-be-storage
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: doris-be
+  namespace: default
+spec:
+  clusterIP: None
+  selector:
+    app: doris-be
+  ports:
+  - name: http
+    port: 8040
+    targetPort: 8040
+  - name: heartbeat
+    port: 9050
+    targetPort: 9050
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: observability-init
+  namespace: default
+  labels:
+    app: observability-init
+spec:
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: Never
+      initContainers:
+      - name: wait-fe
+        image: ghcr.io/cc14514/mysql:8
+        command:
+          - sh
+          - -c
+          - |
+            echo "Waiting for Doris FE..."
+            until mysqladmin ping -h doris-fe.default.svc.cluster.local -P 9030 -uroot --silent; do
+              sleep 5
+            done
+            echo "FE ready"
+      containers:
+      - name: init
+        image: ghcr.io/cc14514/mysql:8
+        command:
+          - sh
+          - -c
+          - |
+            set -eu
+            echo "Checking if Doris is already initialized..."
+            DB_COUNT=$(mysql -h doris-fe.default.svc.cluster.local -P 9030 -uroot -sN \
+                -e "SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='bfe_observability';" 2>/dev/null || echo "0")
+            if [ "$DB_COUNT" -gt 0 ]; then
+                echo "Database already initialized, skipping."
+                exit 0
+            fi
+            echo "Starting Doris initialization..."
+            is_first=true
+            for f in /sql/*.sql; do
+              echo "  Executing $f..."
+              if [ "$is_first" = true ]; then
+                mysql -h doris-fe-0.doris-fe.default.svc.cluster.local -P 9030 -uroot < "$f" || exit 1
+                is_first=false
+              else
+                mysql -h doris-fe-0.doris-fe.default.svc.cluster.local -P 9030 -uroot bfe_observability < "$f" || exit 1
+              fi
+            done
+            echo "Doris initialization complete."
+        volumeMounts:
+        - name: init-sql
+          mountPath: /sql
+      volumes:
+      - name: init-sql
+        configMap:
+          name: doris-init-sql

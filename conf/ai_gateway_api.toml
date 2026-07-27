@@ -57,6 +57,16 @@ MaxIdleConns        = 100
 ConnMaxIdleTimeInMs = 500000
 ConnMaxLifetimeInMs = 5000000
 
+# SQLite database config example
+# see db_ddl_sqlite.sql for table creation
+# [Databases.bfe_db]
+# DBName               = "./data/ai_gateway.db"
+# Driver               = "sqlite"
+# MaxOpenConns         = 50
+# MaxIdleConns         = 10
+# ConnMaxIdleTimeInMs  = 500000
+# ConnMaxLifetimeInMs  = 5000000
+
 
 # ---------------------------------
 # Dependence Config
@@ -79,7 +89,7 @@ UILogo = "https://raw.githubusercontent.com/bfenetworks/bfe/develop/docs/images/
 # don't open it on production environment
 SkipTokenValidate = false
 # sql will be record to log file when this option be opend
-RecordSQL = false
+RecordSQL = true
 # how long use must login again
 SessionExpireInDay = 10
 # static file path, when dynamic router not be matched, static file will be return if found
@@ -88,6 +98,12 @@ StaticFilePath = "./static"
 Debug = false
 # support AI product name
 AIRouteInnerProductName = "AI_product"
+
+# default AI instance pool name
+DefaultAIInstancePoolName = "BFE.aipool"
+
+# default AI cluster name
+DefaultAIClusterName = "BFE-AI_product.szyf"
 
 [RedisConf]
 # bns addr

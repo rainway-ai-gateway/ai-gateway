@@ -1,0 +1,12 @@
+# Persistent storage for MySQL. Uncomment "deploy/mysql-pvc.yaml" in kustomization.yaml to enable.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc
+  namespace: ai-gateway-system
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

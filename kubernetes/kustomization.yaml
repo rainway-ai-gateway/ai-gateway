@@ -23,6 +23,7 @@ resources:
   - deploy/ai-gateway-deploy.yaml
   - deploy/bfe-configmap.yaml
   - deploy/bfe-deploy.yaml
+  - deploy/kafka-deploy.yaml
   - deploy/mysql-deploy.yaml
   - deploy/redis-deploy.yaml
   - deploy/service-controller-deploy.yaml
@@ -39,21 +40,25 @@ resources:
 #     newTag: v1.8.0-debug
 images:
   - name: ghcr.io/bfenetworks/bfe
-    newName: ghcr.io/bfenetworks/bfe
-    newTag: v1.8.3
+    newName: ghcr.nju.edu.cn/yf-networks/bfe
+    newTag: v1.8.4
 
   - name: ghcr.io/yf-networks/ai-gateway-api
-    newName: ghcr.io/yf-networks/ai-gateway-api
-    newTag: v0.0.3
+    newName: ghcr.nju.edu.cn/yf-networks/ai-gateway-api
+    newTag: v0.0.5
 
   - name: ghcr.io/bfenetworks/service-controller
-    newName: ghcr.io/bfenetworks/service-controller
+    newName: ghcr.nju.edu.cn/bfenetworks/service-controller
     newTag: v1.0.0
 
   - name: ghcr.io/cc14514/mysql
-    newName: ghcr.io/cc14514/mysql
+    newName: ghcr.nju.edu.cn/cc14514/mysql
     newTag: "8"
 
   - name: ghcr.io/cc14514/redis
-    newName: ghcr.io/cc14514/redis
+    newName: ghcr.nju.edu.cn/cc14514/redis
     newTag: "6.2"
+
+  - name: ghcr.io/cc14514/kafka
+    newName: ghcr.nju.edu.cn/cc14514/kafka
+    newTag: "3.7.1"

@@ -114,7 +114,7 @@ data:
     # don't open it on production environment
     SkipTokenValidate = false
     # sql will be record to log file when this option be opend
-    RecordSQL = false
+    RecordSQL = true 
     # how long use must login again
     SessionExpireInDay = 10
     # static file path, when dynamic router not be matched, static file will be return if found
@@ -123,6 +123,12 @@ data:
     Debug = false
     # support AI product name
     AIRouteInnerProductName = "AI_product"
+
+    # default AI instance pool name
+    DefaultAIInstancePoolName = "BFE.aipool"
+
+    # default AI cluster name
+    DefaultAIClusterName = "BFE-AI_product.szyf"
 
     [RedisConf]
     # bns addr

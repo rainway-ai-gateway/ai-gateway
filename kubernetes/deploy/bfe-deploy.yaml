@@ -43,6 +43,9 @@ spec:
         - name: monitor
           containerPort: 8421
           protocol: TCP
+        - name: lr-monitor
+          containerPort: 8992
+          protocol: TCP
         volumeMounts:
         - name: bfe-conf
           mountPath: /home/work/bfe/conf/bfe.conf
@@ -52,18 +55,29 @@ spec:
           mountPath: /home/work/bfe/conf/name_conf.data
           subPath: name_conf.data
           readOnly: false
-        
         - name: conf-agent-conf
           mountPath: /home/work/conf-agent/conf/conf-agent.toml
           subPath: conf-agent.toml
           readOnly: false
+        - name: log-reader-conf
+          mountPath: /home/work/log-reader/conf/config.conf
+          subPath: config.conf
+          readOnly: false
+        - name: log-reader-conf
+          mountPath: /home/work/log-reader/conf/mod_kafka/mod_kafka.conf
+          subPath: mod_kafka.conf
+          readOnly: false
+        - name: log-reader-conf
+          mountPath: /home/work/log-reader/conf/mod_kafka/kafka_config.data
+          subPath: kafka_config.data
+          readOnly: false
         resources:
           requests:
-            cpu: 100m
-            memory: 128Mi
+            cpu: 200m
+            memory: 256Mi
           limits:
-            cpu: 1000m
-            memory: 512Mi
+            cpu: 2000m
+            memory: 1Gi
         livenessProbe:
           httpGet:
             path: /monitor
@@ -83,6 +97,9 @@ spec:
       - name: conf-agent-conf
         configMap:
           name: conf-agent-config
+      - name: log-reader-conf
+        configMap:
+          name: log-reader-config
 
 ---
 apiVersion: v1

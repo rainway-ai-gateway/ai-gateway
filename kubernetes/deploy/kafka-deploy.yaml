@@ -1,0 +1,97 @@
+# Copyright(c) 2024 Beijing Yingfei Networks Technology Co.Ltd. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Kafka (KRaft mode, single node)
+# Demo only — uses emptyDir, no persistence. For production use external Kafka
+# or replace emptyDir with PVC and set replicas >= 3.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+  namespace: ai-gateway-system
+  labels:
+    app: kafka
+spec:
+  serviceName: kafka
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+      - name: kafka
+        image: ghcr.io/cc14514/kafka:3.7.1
+        ports:
+        - name: client
+          containerPort: 9092
+        - name: controller
+          containerPort: 9093
+        env:
+        - name: KAFKA_NODE_ID
+          value: "0"
+        - name: KAFKA_PROCESS_ROLES
+          value: "controller,broker"
+        - name: KAFKA_LISTENERS
+          value: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: "PLAINTEXT://kafka.ai-gateway-system.svc.cluster.local:9092"
+        - name: KAFKA_CONTROLLER_LISTENER_NAMES
+          value: "CONTROLLER"
+        - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+          value: "0@localhost:9093"
+        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+        - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
+          value: "true"
+        - name: KAFKA_NUM_PARTITIONS
+          value: "2"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        volumeMounts:
+        - name: kafka-data
+          mountPath: /var/lib/kafka/data
+      volumes:
+      - name: kafka-data
+        emptyDir: {}
+        # Production: replace with PVC
+        # persistentVolumeClaim:
+        #   claimName: kafka-data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: ai-gateway-system
+spec:
+  selector:
+    app: kafka
+  ports:
+  - name: client
+    port: 9092
+    targetPort: 9092
+    nodePort: 30092
+  - name: controller
+    port: 9093
+    targetPort: 9093
+  type: NodePort

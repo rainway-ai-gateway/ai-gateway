@@ -41,11 +41,16 @@ RUN set -ex; \
     && mkdir -p /home/work/bfe/conf \
     && mkdir -p /home/work/bfe/log \
     && mkdir -p /home/work/conf-agent/conf \
-    && mkdir -p /home/work/conf-agent/log
+    && mkdir -p /home/work/conf-agent/log \
+    && mkdir -p /home/work/log-reader/bin \
+    && mkdir -p /home/work/log-reader/conf/mod_kafka \
+    && mkdir -p /home/work/log-reader/log
 
 COPY --from=bfe /home/work/bfe/bin/bfe /home/work/bfe/bin/bfe
 COPY --from=bfe /home/work/bfe/conf /home/work/bfe/conf
 COPY --from=bfe /home/work/conf-agent/conf-agent /home/work/conf-agent/conf-agent
+COPY --from=bfe /home/work/log-reader/bin/log-reader /home/work/log-reader/bin/log-reader
+COPY --from=bfe /home/work/log-reader/conf/ /home/work/log-reader/conf/
 
 COPY --from=api /home/work/api-server/api-server /home/work/api-server/api-server
 COPY --from=api /home/work/api-server/conf /home/work/api-server/conf
@@ -73,37 +78,46 @@ BFECluster              = "BFE-AI_product.szyf"
 BFEConfDir              = "/home/work/bfe/conf"
 BFEMonitorPort          = 8421
 BFEReloadTimeoutMs      = 1500
+
 ReloadIntervalMs        = 5000
+
 ConfServer              = "http://127.0.0.1:8183"
+# Token 获取参考 https://github.com/bfenetworks/dashboard/blob/develop/docs/zh-cn/user-guide/system-view/user-management.md#token%E7%AE%A1%E7%90%86
 ConfTaskHeaders         = {"Authorization" = "Token c5QFb-MrlKktJbOid2M3"}
 ConfTaskTimeoutMs       = 1500
+
 ExtraFileServer         = "http://127.0.0.1:8183/inner-api/v1/configs/extra_files/"
+# Token 获取参考 https://github.com/bfenetworks/dashboard/blob/develop/docs/zh-cn/user-guide/system-view/user-management.md#token%E7%AE%A1%E7%90%86
 ExtraFileTaskHeaders    = {"Authorization" = "Token c5QFb-MrlKktJbOid2M3"}
-ExtraFileTaskTimeoutMs  = 2500
+ExtraFileTaskTimeoutMs  = 1500
+
+
+# reloader for server_data_config files, detail see https://www.bfe-networks.net/en_us/configuration/server_data_conf/host_rule.data/
+[Reloaders.server_data_conf]
+CopyFiles       = ["cluster_conf.data", "host_rule.data", "name_conf.data", "route_rule.data", "vip_rule.data"]
+[[Reloaders.server_data_conf.MultiKeyFileTasks]]
+ConfAPI         = "/inner-api/v1/configs/tls_conf/server_data_conf"
+Key2ConfFile    = {"HostTable" = "host_rule.data", "RouteTable" = "route_rule.data", "ClusterConf" = "cluster_conf.data"}
+
+# # reloader for cluster_conf files, detail see https://www.bfe-networks.net/en_us/configuration/cluster_conf/gslb.data/
+[Reloaders.cluster_conf]
+BFEReloadAPI    = "/reload/gslb_data_conf"
+CopyFiles       = ["cluster_table.data", "gslb.data"]
+[[Reloaders.cluster_conf.NormalFileTasks]]
+ConfAPI         = "/inner-api/v1/configs/gslb_data/cluster_table"
+ConfFileName    = "cluster_table.data"
+[[Reloaders.cluster_conf.NormalFileTasks]]
+ConfAPI         = "/inner-api/v1/configs/gslb_data/gslb"
+ConfFileName    = "gslb.data"
+
 
 [Reloaders.mod_ai_token_auth]
-BFEReloadAPI = "/reload/mod_ai_token_auth"
+BFEReloadAPI    = "/reload/mod_ai_token_auth"
 ReloadFile = "token_rule.data"
-CopyFiles = ["token_rule.data", "mod_ai_token_auth.conf"]
+CopyFiles       = ["token_rule.data", "mod_ai_token_auth.conf"]
 [[Reloaders.mod_ai_token_auth.NormalFileTasks]]
-ConfAPI = "/inner-api/v1/configs/mod-api-key"
-ConfFileName = "token_rule.data"
-
-[Reloaders.server_data_conf]
-CopyFiles = ["cluster_conf.data", "host_rule.data", "name_conf.data", "route_rule.data", "vip_rule.data"]
-[[Reloaders.server_data_conf.MultiKeyFileTasks]]
-ConfAPI = "/inner-api/v1/configs/tls_conf/server_data_conf"
-Key2ConfFile = {"HostTable" = "host_rule.data", "RouteTable" = "route_rule.data", "ClusterConf" = "cluster_conf.data"}
-
-[Reloaders.cluster_conf]
-BFEReloadAPI = "/reload/gslb_data_conf"
-CopyFiles = ["cluster_table.data", "gslb.data"]
-[[Reloaders.cluster_conf.NormalFileTasks]]
-ConfAPI = "/inner-api/v1/configs/gslb_data/cluster_table"
-ConfFileName = "cluster_table.data"
-[[Reloaders.cluster_conf.NormalFileTasks]]
-ConfAPI = "/inner-api/v1/configs/gslb_data/gslb"
-ConfFileName = "gslb.data"
+ConfAPI         = "/inner-api/v1/configs/mod-api-key"
+ConfFileName    = "token_rule.data"
 
 [Reloaders.mod_ai_rate_limit]
 BFEReloadAPI    = "/reload/mod_ai_rate_limit"
@@ -112,6 +126,23 @@ CopyFiles       = ["ai_rate_limit.data", "mod_ai_rate_limit.conf"]
 [[Reloaders.mod_ai_rate_limit.NormalFileTasks]]
 ConfAPI         = "/inner-api/v1/configs/rate-limit-policy"
 ConfFileName    = "ai_rate_limit.data"
+
+[Reloaders.mod_body_process]
+BFEReloadAPI    = "/reload/mod_body_process"
+ReloadFile = "body_process_rule.data"
+CopyFiles       = ["body_process_rule.data", "mod_body_process.conf"]
+[[Reloaders.mod_body_process.NormalFileTasks]]
+ConfAPI         = "/inner-api/v1/configs/mod-body-process"
+ConfFileName    = "body_process_rule.data"
+
+# # reloader for tls_conf files, detail see https://www.bfe-networks.net/en_us/configuration/tls_conf/server_cert_conf.data/
+[Reloaders.tls_conf]
+CopyFiles      = ["client_ca", "client_crl", "server_cert_conf.data", "session_ticket_key.data", "tls_rule_conf.data"]
+[[Reloaders.tls_conf.ExtraFileTasks]]
+ConfAPI             = "/inner-api/v1/configs/protocol/server_cert_conf"
+ConfFileName        = "server_cert_conf.data"
+ExtraFileJSONPaths  = ["$.Config.CertConf.*.ServerCertFile", "$.Config.CertConf.*.ServerKeyFile"]
+
 EOF
 
 RUN cat > /home/work/entrypoint.sh <<'SCRIPT'
@@ -120,6 +151,7 @@ set -e
 
 API_PID=""
 CONF_PID=""
+LR_PID=""
 BFE_PID=""
 
 cleanup() {
@@ -130,6 +162,9 @@ cleanup() {
     fi
     if [ -n "$CONF_PID" ]; then
         kill -TERM "$CONF_PID" 2>/dev/null || true
+    fi
+    if [ -n "$LR_PID" ]; then
+        kill -TERM "$LR_PID" 2>/dev/null || true
     fi
     if [ -n "$BFE_PID" ]; then
         kill -TERM "$BFE_PID" 2>/dev/null || true
@@ -188,6 +223,12 @@ nohup ./conf-agent -c ./conf \
     </dev/null >./log/stdout.log 2>&1 &
 CONF_PID=$!
 
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting log-reader..."
+cd /home/work/log-reader
+nohup ./bin/log-reader -c ./conf -l ./log \
+    </dev/null >./log/stdout.log 2>&1 &
+LR_PID=$!
+
 echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting bfe..."
 cd /home/work/bfe/bin
 nohup ./bfe -c ../conf/ -l ../log/ \
@@ -197,11 +238,12 @@ BFE_PID=$!
 echo "[$(date +'%Y-%m-%d %H:%M:%S')] All processes started, waiting..."
 
 sleep 2
-for pid in $API_PID $CONF_PID $BFE_PID; do
+for pid in $API_PID $CONF_PID $LR_PID $BFE_PID; do
     if ! kill -0 "$pid" 2>/dev/null; then
         echo "[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: process $pid exited, dumping logs..."
         for lf in /home/work/api-server/log/stdout.log \
                   /home/work/conf-agent/log/stdout.log \
+                  /home/work/log-reader/log/stdout.log \
                   /home/work/bfe/log/stdout.log \
                   /home/work/bfe/log/*.log \
                   /home/work/bfe/log/*.wf; do
@@ -216,7 +258,7 @@ SCRIPT
 
 RUN chmod +x /home/work/entrypoint.sh
 
-EXPOSE 8080 8443 8421 8183 8284
+EXPOSE 8080 8443 8421 8183 8284 8992
 
 WORKDIR /home/work
 ENTRYPOINT ["/sbin/tini", "--"]
