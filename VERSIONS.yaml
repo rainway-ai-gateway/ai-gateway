@@ -1,4 +1,4 @@
-version: v0.2.0
+version: v0.3.0
 components:
   bfe:
     version: v1.8.4
@@ -10,6 +10,6 @@ components:
       - log-reader
 
   ai-gateway-api:
-    version: v0.0.5
+    version: v0.0.6
     source: image
-    image: ghcr.io/yf-networks/ai-gateway-api:v0.0.5
+    image: ghcr.io/yf-networks/ai-gateway-api:v0.0.6

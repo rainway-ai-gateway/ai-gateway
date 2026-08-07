@@ -1,5 +1,32 @@
 # Changelog
 
+## [v0.3.0] — 2026-08-07
+
+### Updated Components
+
+| Component | Version |
+|---|---|
+| BFE | [v1.8.4](https://github.com/bfenetworks/bfe/releases/tag/v1.8.4) |
+| AI Gateway API | [v0.0.6](https://github.com/yf-networks/ai-gateway-api/releases/tag/v0.0.6) |
+| Dashboard | [v0.0.6](https://github.com/yf-networks/ai-gateway-web/releases/tag/v0.0.6) |
+| conf-agent | v0.0.5 ([yf-networks](https://github.com/yf-networks/conf-agent)) |
+| log-reader | [v1.0.0](https://github.com/bfenetworks/log-reader) |
+
+### Added
+
+- Per-key / per-entity / global routing rules: new `route_rules` table supports three routing tiers (`api_key`, `entity`, `global`), with `route_rules_id` FK added to `api_keys` and `entities` tables.
+- `mod_ai_route` BFE module enabled in `conf/bfe.conf` and K8s ConfigMap, with conf-agent hot-reload (`ai_route.data`) wired in `Dockerfile.standalone`.
+
+### Changed
+
+- Bump AI Gateway API to v0.0.6, Dashboard to v0.0.6, conf-agent to v0.0.5.
+- BFE tagged as official release v1.8.4 (previously tracked as develop build).
+- `EnableAiGateway` default reset to `false` in `conf/bfe.conf` and K8s `bfe-configmap.yaml` — must explicitly enable for AI traffic gateway mode.
+- **Database schema changes**: `api_keys`/`api_key_tokens` api_key narrowed (1024→128), unique index added; `certificates` columns removed; `route_rules_id` added to `api_keys`/`entities`; new `route_rules` table. New deployments auto-init via DDL; existing v0.2.0 upgrades need manual migration.
+- Grafana dashboard legend placement moved from right to bottom for all panels.
+
+---
+
 ## [v0.2.0] — 2026-07-24
 
 ### Updated Components

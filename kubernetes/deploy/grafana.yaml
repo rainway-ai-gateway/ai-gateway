@@ -94,7 +94,7 @@ data:
             "rawSql": "SELECT ts_min AS time, SUM(request_count) / 60 AS qps FROM bfe_ai_metrics_1m WHERE ts_min >= $__timeFrom() AND ts_min < $__timeTo() AND ai_mapped_model IN ($model) AND ai_apikey IN ($apikey) GROUP BY ts_min ORDER BY ts_min",
             "refId": "A", "table": "bfe_ai_metrics_1m"
           }],
-          "options": { "legend": { "displayMode": "list", "placement": "right" }, "tooltip": { "mode": "single" }, "fillGradient": 1, "lineWidth": 2 },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" }, "fillGradient": 1, "lineWidth": 2 },
           "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" } }, "overrides": [] }
         },
         {
@@ -106,7 +106,7 @@ data:
             "rawSql": "SELECT ts_min AS time, IFNULL(SUM(error_count) / NULLIF(SUM(request_count), 0), 0) AS error_rate FROM bfe_ai_metrics_1m WHERE ts_min >= $__timeFrom() AND ts_min < $__timeTo() AND ai_mapped_model IN ($model) AND ai_apikey IN ($apikey) GROUP BY ts_min ORDER BY ts_min",
             "refId": "A", "table": "bfe_ai_metrics_1m"
           }],
-          "options": { "legend": { "displayMode": "list", "placement": "right" }, "tooltip": { "mode": "single" }, "fillGradient": 1, "lineWidth": 2 },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" }, "fillGradient": 1, "lineWidth": 2 },
           "fieldConfig": { "defaults": { "unit": "percent", "color": { "mode": "palette-classic" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green" }, { "color": "red", "value": 0.05 }] } }, "overrides": [] }
         },
         {
@@ -118,7 +118,7 @@ data:
             "rawSql": "SELECT ts_min AS time, SUM(total_tokens) AS tokens_per_minute FROM bfe_ai_metrics_1m WHERE ts_min >= $__timeFrom() AND ts_min < $__timeTo() AND ai_mapped_model IN ($model) AND ai_apikey IN ($apikey) GROUP BY ts_min ORDER BY ts_min",
             "refId": "A", "table": "bfe_ai_metrics_1m"
           }],
-          "options": { "legend": { "displayMode": "list", "placement": "right" }, "tooltip": { "mode": "single" }, "fillGradient": 1, "lineWidth": 2 },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" }, "fillGradient": 1, "lineWidth": 2 },
           "fieldConfig": { "defaults": { "unit": "none", "color": { "mode": "palette-classic" } }, "overrides": [] }
         },
         {
@@ -130,7 +130,7 @@ data:
             "rawSql": "SELECT ts_min AS time, SUM(rate_limit_hits) AS rate_limit_hits FROM bfe_ai_metrics_1m WHERE ts_min >= $__timeFrom() AND ts_min < $__timeTo() AND ai_mapped_model IN ($model) AND ai_apikey IN ($apikey) GROUP BY ts_min ORDER BY ts_min",
             "refId": "A", "table": "bfe_ai_metrics_1m"
           }],
-          "options": { "legend": { "displayMode": "list", "placement": "right" }, "tooltip": { "mode": "single" }, "fillGradient": 1, "lineWidth": 2 },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" }, "fillGradient": 1, "lineWidth": 2 },
           "fieldConfig": { "defaults": { "unit": "none", "color": { "mode": "palette-classic" } }, "overrides": [] }
         },
         {
@@ -142,7 +142,7 @@ data:
             "rawSql": "SELECT ts_min AS time, SUM(auth_reject_count) AS auth_reject_count FROM bfe_ai_metrics_1m WHERE ts_min >= $__timeFrom() AND ts_min < $__timeTo() AND ai_mapped_model IN ($model) AND ai_apikey IN ($apikey) GROUP BY ts_min ORDER BY ts_min",
             "refId": "A", "table": "bfe_ai_metrics_1m"
           }],
-          "options": { "legend": { "displayMode": "list", "placement": "right" }, "tooltip": { "mode": "single" }, "fillGradient": 1, "lineWidth": 2 },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" }, "fillGradient": 1, "lineWidth": 2 },
           "fieldConfig": { "defaults": { "unit": "none", "color": { "mode": "palette-classic" } }, "overrides": [] }
         },
         { "id": 6, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 }, "maxPerRow": 4, "title": "延迟分布", "type": "row" },
@@ -155,7 +155,7 @@ data:
             "rawSql": "SELECT $__timeGroup(log_time, '1m') AS time, PERCENTILE_APPROX(all_time, 0.50) AS p50, PERCENTILE_APPROX(all_time, 0.90) AS p90, PERCENTILE_APPROX(all_time, 0.99) AS p99 FROM bfe_ai_request_log WHERE log_time >= $__timeFrom() AND log_time < $__timeTo() AND ai_mapped_model IN ($model) AND ai_apikey IN ($apikey) AND all_time IS NOT NULL GROUP BY time ORDER BY time",
             "refId": "A", "table": "bfe_ai_request_log"
           }],
-          "options": { "legend": { "displayMode": "list", "placement": "right" }, "tooltip": { "mode": "multi" }, "fillGradient": 0, "lineWidth": 2 },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" }, "fillGradient": 0, "lineWidth": 2 },
           "fieldConfig": { "defaults": { "unit": "ms", "color": { "mode": "palette-classic" } }, "overrides": [
             { "matcher": { "id": "byName", "options": "p50" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] },
             { "matcher": { "id": "byName", "options": "p90" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] },
@@ -171,7 +171,7 @@ data:
             "rawSql": "SELECT $__timeGroup(log_time, '1m') AS time, PERCENTILE_APPROX(ai_ttft_us, 0.50) / 1000 AS ttft_p50_ms, PERCENTILE_APPROX(ai_ttft_us, 0.90) / 1000 AS ttft_p90_ms, PERCENTILE_APPROX(ai_ttft_us, 0.99) / 1000 AS ttft_p99_ms FROM bfe_ai_request_log WHERE log_time >= $__timeFrom() AND log_time < $__timeTo() AND ai_stream = 1 AND ai_mapped_model IN ($model) AND ai_ttft_us IS NOT NULL GROUP BY time ORDER BY time",
             "refId": "A", "table": "bfe_ai_request_log"
           }],
-          "options": { "legend": { "displayMode": "list", "placement": "right" }, "tooltip": { "mode": "multi" }, "fillGradient": 0, "lineWidth": 2 },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" }, "fillGradient": 0, "lineWidth": 2 },
           "fieldConfig": { "defaults": { "unit": "ms", "color": { "mode": "palette-classic" } }, "overrides": [] }
         },
         {
@@ -183,7 +183,7 @@ data:
             "rawSql": "SELECT $__timeGroup(log_time, '1m') AS time, PERCENTILE_APPROX(ai_tpot_us, 0.50) / 1000 AS tpot_p50_ms, PERCENTILE_APPROX(ai_tpot_us, 0.90) / 1000 AS tpot_p90_ms, PERCENTILE_APPROX(ai_tpot_us, 0.99) / 1000 AS tpot_p99_ms FROM bfe_ai_request_log WHERE log_time >= $__timeFrom() AND log_time < $__timeTo() AND ai_stream = 1 AND ai_mapped_model IN ($model) AND ai_tpot_us IS NOT NULL GROUP BY time ORDER BY time",
             "refId": "A", "table": "bfe_ai_request_log"
           }],
-          "options": { "legend": { "displayMode": "list", "placement": "right" }, "tooltip": { "mode": "multi" }, "fillGradient": 0, "lineWidth": 2 },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" }, "fillGradient": 0, "lineWidth": 2 },
           "fieldConfig": { "defaults": { "unit": "ms", "color": { "mode": "palette-classic" } }, "overrides": [] }
         },
         { "id": 9, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 }, "maxPerRow": 4, "title": "组件耗时与 Token 吞吐", "type": "row" },
@@ -208,7 +208,7 @@ data:
             "rawSql": "SELECT ts_min AS time, SUM(prompt_tokens) AS prompt_tokens, SUM(output_tokens) AS output_tokens, SUM(total_tokens) AS total_tokens FROM bfe_ai_metrics_1m WHERE ts_min >= $__timeFrom() AND ts_min < $__timeTo() AND ai_mapped_model IN ($model) AND ai_apikey IN ($apikey) GROUP BY ts_min ORDER BY ts_min",
             "refId": "A", "table": "bfe_ai_metrics_1m"
           }],
-          "options": { "legend": { "displayMode": "list", "placement": "right" }, "tooltip": { "mode": "multi" }, "fillGradient": 1, "lineWidth": 2, "stacking": { "mode": "normal" } },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" }, "fillGradient": 1, "lineWidth": 2, "stacking": { "mode": "normal" } },
           "fieldConfig": { "defaults": { "unit": "none", "color": { "mode": "palette-classic" } }, "overrides": [] }
         },
         { "id": 11, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 31 }, "maxPerRow": 4, "title": "维度下钻", "type": "row" },
@@ -269,7 +269,7 @@ data:
             "rawSql": "SELECT res_status_code, SUM(request_count) AS count FROM bfe_ai_metrics_1m WHERE ts_min >= $__timeFrom() AND ts_min < $__timeTo() GROUP BY res_status_code ORDER BY count DESC",
             "refId": "A", "table": "bfe_ai_metrics_1m"
           }],
-          "options": { "legend": { "displayMode": "list", "placement": "right", "values": ["value", "percent"] }, "tooltip": { "mode": "single" } },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "values": ["value", "percent"] }, "tooltip": { "mode": "single" } },
           "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] }
         },
         {
@@ -281,7 +281,7 @@ data:
             "rawSql": "SELECT res_content_type, COUNT(*) AS count FROM bfe_ai_request_log WHERE log_time >= $__timeFrom() AND log_time < $__timeTo() AND res_content_type != '' AND res_content_type IN ($res_content_type) GROUP BY res_content_type ORDER BY count DESC",
             "refId": "A", "table": "bfe_ai_request_log"
           }],
-          "options": { "legend": { "displayMode": "list", "placement": "right", "values": ["value", "percent"] }, "tooltip": { "mode": "single" } },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom", "values": ["value", "percent"] }, "tooltip": { "mode": "single" } },
           "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] }
         },
         { "id": 14, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 53 }, "maxPerRow": 4, "title": "明细回溯", "type": "row" },

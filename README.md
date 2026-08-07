@@ -202,18 +202,18 @@ See comments in each file for examples.
 This repository is the **product-level version entry point**. `VERSIONS.yaml` defines the verified component versions:
 
 ```yaml
-version: v0.1.0
+version: v0.3.0
 components:
   bfe:
-    version: v1.8.2
-    image: ghcr.io/bfenetworks/bfe:v1.8.2
+    version: v1.8.4
+    image: ghcr.io/yf-networks/bfe:v1.8.4
     provides:
       - bfe
       - conf-agent
       - log-reader
   ai-gateway-api:
-    version: v0.0.2
-    image: ghcr.io/yf-networks/ai-gateway-api:v0.0.2
+    version: v0.0.6
+    image: ghcr.io/yf-networks/ai-gateway-api:v0.0.6
 ```
 
 Update `VERSIONS.yaml` → rebuild → tag a new product release.
