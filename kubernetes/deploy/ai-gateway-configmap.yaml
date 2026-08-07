@@ -34,6 +34,8 @@ data:
     # ---------------------------------
     # AI GATEWAY API Config
     [Server]
+    # server listen addr
+    ServerAddr = "0.0.0.0"
     # server port
     ServerPort = 8183
     # server graceful exit timeout
