@@ -10,7 +10,6 @@
 | AI Gateway API | [v0.0.6](https://github.com/yf-networks/ai-gateway-api/releases/tag/v0.0.6) |
 | Dashboard | [v0.0.6](https://github.com/yf-networks/ai-gateway-web/releases/tag/v0.0.6) |
 | conf-agent | v0.0.5 ([yf-networks](https://github.com/yf-networks/conf-agent)) |
-| log-reader | [v1.0.0](https://github.com/bfenetworks/log-reader) |
 
 ### Added
 
