@@ -135,6 +135,15 @@ CopyFiles       = ["body_process_rule.data", "mod_body_process.conf"]
 ConfAPI         = "/inner-api/v1/configs/mod-body-process"
 ConfFileName    = "body_process_rule.data"
 
+# reloader for mod_ai_route
+[Reloaders.mod_ai_route]
+BFEReloadAPI    = "/reload/mod_ai_route"
+ReloadFile      = "ai_route.data"
+CopyFiles       = ["ai_route.data", "mod_ai_route.conf"]
+[[Reloaders.mod_ai_route.NormalFileTasks]]
+ConfAPI         = "/inner-api/v1/configs/ai-route"
+ConfFileName    = "ai_route.data"
+
 # # reloader for tls_conf files, detail see https://www.bfe-networks.net/en_us/configuration/tls_conf/server_cert_conf.data/
 [Reloaders.tls_conf]
 CopyFiles      = ["client_ca", "client_crl", "server_cert_conf.data", "session_ticket_key.data", "tls_rule_conf.data"]

@@ -200,18 +200,18 @@ make docker-standalone-push REGISTRY=ghcr.io/your-org  # 多架构推送
 本仓库是 AI Gateway 的**产品级版本入口**。`VERSIONS.yaml` 定义了经过验证的组件版本组合：
 
 ```yaml
-version: v0.1.0
+version: v0.3.0
 components:
   bfe:
-    version: v1.8.2
-    image: ghcr.io/bfenetworks/bfe:v1.8.2
+    version: v1.8.4
+    image: ghcr.io/yf-networks/bfe:v1.8.4
     provides:
       - bfe
       - conf-agent
       - log-reader
   ai-gateway-api:
-    version: v0.0.2
-    image: ghcr.io/yf-networks/ai-gateway-api:v0.0.2
+    version: v0.0.6
+    image: ghcr.io/yf-networks/ai-gateway-api:v0.0.6
 ```
 
 更新 `VERSIONS.yaml` → 重新构建 → 打产品 tag 发布。

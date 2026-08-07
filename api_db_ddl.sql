@@ -201,9 +201,7 @@ CREATE TABLE `certificates` (
   `description` varchar(1024) NOT NULL DEFAULT 'no desc',
   `is_default` tinyint(1) NOT NULL DEFAULT '0',
   `expired_date` varchar(255) NOT NULL,
-  `cert_file_name` varchar(255) NOT NULL,
   `cert_file_path` varchar(255) NOT NULL,
-  `key_file_name` varchar(255) NOT NULL,
   `key_file_path` varchar(255) NOT NULL,
 
   `created_at` datetime NOT NULL,
@@ -273,7 +271,7 @@ CREATE TABLE api_keys (
   `inner_id` bigint(20) NOT NULL AUTO_INCREMENT comment "内部id",
   `id` varchar(255) NOT NULL DEFAULT '' comment "API-Key标识",
   `enable` boolean NOT NULL DEFAULT false comment "api keys开关",
-  `api_key` varchar(1024) NOT NULL default '' comment "具体的key",
+  `api_key` varchar(128) NOT NULL default '' comment "具体的key",
   `description` varchar(512) DEFAULT '' comment "API-Key描述",
   `unlimited_quota` tinyint(1) DEFAULT 0 comment "是否无限配额：0-有限，1-无限",
   `product_name` varchar(255) NOT NULL DEFAULT '' comment "产品线名称",
@@ -283,21 +281,24 @@ CREATE TABLE api_keys (
   `entity_id` varchar(64) DEFAULT NULL comment "挂载的Entity ID",
   `quota_plan_id` bigint DEFAULT NULL comment "配额计划ID",
   `rate_limit_policy_id` bigint DEFAULT NULL comment "限流策略ID",
+  `route_rules_id` bigint DEFAULT NULL comment "路由规则ID",
   `created_at` datetime NOT NULL DEFAULT '0000-01-01 00:00:00' COMMENT '创建时间',
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP  comment "更新时间",
   PRIMARY KEY (`inner_id`),
   UNIQUE KEY `uk_id` (`id`),
+  UNIQUE KEY `uk_api_key` (`api_key`),
   INDEX idx_product_name (product_name),
   INDEX idx_entity_id (entity_id),
   INDEX idx_quota_plan_id (quota_plan_id),
-  INDEX idx_rate_limit_policy_id (rate_limit_policy_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 comment = "api keys"; 
+  INDEX idx_rate_limit_policy_id (rate_limit_policy_id),
+  INDEX idx_route_rules_id (route_rules_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 comment = "api keys";
 
 -- create api_key_tokens
 DROP TABLE IF EXISTS `api_key_tokens`;
 CREATE TABLE api_key_tokens (
   `id` bigint NOT NULL AUTO_INCREMENT comment "表ID",
-  `api_key` varchar(1024) NOT NULL DEFAULT '' comment "存储的api_key",
+  `api_key` varchar(128) NOT NULL DEFAULT '' comment "存储的api_key",
   `created_at` datetime NOT NULL DEFAULT '0000-01-01 00:00:00' COMMENT '创建时间',
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP  comment "更新时间",
   PRIMARY KEY (`id`),
@@ -359,6 +360,7 @@ CREATE TABLE `entities` (
   `block_models` TEXT COMMENT '禁止访问的模型黑名单（JSON数组）',
   `quota_plan_id` BIGINT DEFAULT NULL COMMENT '配额计划ID',
   `rate_limit_policy_id` BIGINT DEFAULT NULL COMMENT '限流策略ID',
+  `route_rules_id` BIGINT DEFAULT NULL COMMENT '路由规则ID',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   UNIQUE KEY `uk_entity_id` (`entity_id`),
@@ -366,7 +368,8 @@ CREATE TABLE `entities` (
   INDEX `idx_parent_id` (`parent_id`),
   INDEX `idx_type` (`type`),
   INDEX `idx_quota_plan_id` (`quota_plan_id`),
-  INDEX `idx_rate_limit_policy_id` (`rate_limit_policy_id`)
+  INDEX `idx_rate_limit_policy_id` (`rate_limit_policy_id`),
+  INDEX `idx_route_rules_id` (`route_rules_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Entity实体表';
 
 -- create quota_plans (配额计划表)
@@ -410,6 +413,20 @@ CREATE TABLE `rate_limit_policies` (
   INDEX `idx_enabled` (`enabled`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='限流策略表';
 
+-- create route_rules (路由规则表)
+DROP TABLE IF EXISTS `route_rules`;
+CREATE TABLE `route_rules` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+  `type` VARCHAR(32) NOT NULL DEFAULT 'api_key' COMMENT '规则类型：api_key/entity/global',
+  `owner` VARCHAR(64) NOT NULL COMMENT '所有者标识：api_key_id/entity_id/global',
+  `enabled` TINYINT(1) DEFAULT 0 COMMENT '是否启用：0-禁用，1-启用',
+  `rules` TEXT COMMENT '路由规则列表（JSON数组）',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  UNIQUE KEY `uk_type_owner` (`type`, `owner`),
+  INDEX `idx_enabled` (`enabled`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='路由规则表';
+
 -- insert default user
 insert into users (id, name, password, scopes, created_at) values(1, 'admin', 'admin', 'System', now());
 insert into users (id, name, type, password, ticket, ticket_created_at, scopes, created_at) values (2, 'demo', 1, '', 'eT5QWkLhQmp6lO4NWxAc', now(), 'Product', now());
@@ -423,3 +440,6 @@ insert into user_products (user_id, product_id, created_at, updated_at) values (
 INSERT INTO `pools` ( `id`, `name`, `product_id`, `ready`, `instance_detail`, `type`, `tag`, `role`, `created_at`, `updated_at`) VALUES ( 1, 'BFE.aipool', 1, 1, '[{"Name":"127.0.0.1","Addr":"127.0.0.1","Port":8080,"Ports":{"Default":8080},"tags":{"key":"value"},"Weight":1,"Disable":false}]', 1, 1, 'COMMON', NOW(), NOW());
 -- bfe_clusters init
 INSERT INTO `bfe_clusters` ( `id`, `name`, `pool_name`, `capacity`, `enabled`, `gtc_enabled`, `gtc_manual_enabled`, `exempt_traffic_check`, `created_at`, `updated_at`) VALUES ( 1, 'BFE-AI_product.szyf', 'BFE.aipool', 0, 1, 1, 1, 0, NOW(), NOW());
+
+-- 初始化默认 global 路由表
+INSERT IGNORE INTO `route_rules` (`type`, `owner`, `enabled`, `rules`) VALUES ('global', 'global', 0, '[]');

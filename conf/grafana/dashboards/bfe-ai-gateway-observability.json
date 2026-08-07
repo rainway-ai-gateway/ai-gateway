@@ -110,7 +110,7 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "right"
+          "placement": "bottom"
         },
         "tooltip": {
           "mode": "single"
@@ -157,7 +157,7 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "right"
+          "placement": "bottom"
         },
         "tooltip": {
           "mode": "single"
@@ -217,7 +217,7 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "right"
+          "placement": "bottom"
         },
         "tooltip": {
           "mode": "single"
@@ -264,7 +264,7 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "right"
+          "placement": "bottom"
         },
         "tooltip": {
           "mode": "single"
@@ -311,7 +311,7 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "right"
+          "placement": "bottom"
         },
         "tooltip": {
           "mode": "single"
@@ -372,7 +372,7 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "right"
+          "placement": "bottom"
         },
         "tooltip": {
           "mode": "multi"
@@ -465,7 +465,7 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "right"
+          "placement": "bottom"
         },
         "tooltip": {
           "mode": "multi"
@@ -512,7 +512,7 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "right"
+          "placement": "bottom"
         },
         "tooltip": {
           "mode": "multi"
@@ -621,7 +621,7 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "right"
+          "placement": "bottom"
         },
         "tooltip": {
           "mode": "multi"
@@ -897,7 +897,7 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "right",
+          "placement": "bottom",
           "values": [
             "value",
             "percent"
@@ -945,7 +945,7 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "right",
+          "placement": "bottom",
           "values": [
             "value",
             "percent"

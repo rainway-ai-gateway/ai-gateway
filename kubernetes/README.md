@@ -65,13 +65,13 @@ To use custom image addresses or versions, modify `images:` in `kustomization.ya
 images:
   - name: ghcr.io/bfenetworks/bfe
     newName: ghcr.io/your-org/bfe
-    newTag: v1.8.2
+    newTag: v1.8.4
   - name: ghcr.io/yf-networks/ai-gateway-api
     newName: ghcr.io/your-org/ai-gateway-api
-    newTag: v0.0.2
+    newTag: v0.0.6
   - name: ghcr.io/bfenetworks/service-controller
     newName: ghcr.io/your-org/service-controller
-    newTag: v0.0.1
+    newTag: v1.0.0
 ```
 
 ### 2. Deploy

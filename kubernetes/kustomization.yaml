@@ -45,7 +45,7 @@ images:
 
   - name: ghcr.io/yf-networks/ai-gateway-api
     newName: ghcr.nju.edu.cn/yf-networks/ai-gateway-api
-    newTag: v0.0.5
+    newTag: v0.0.6
 
   - name: ghcr.io/bfenetworks/service-controller
     newName: ghcr.nju.edu.cn/bfenetworks/service-controller

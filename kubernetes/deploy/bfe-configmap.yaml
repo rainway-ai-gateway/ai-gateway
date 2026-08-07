@@ -59,8 +59,8 @@ data:
     # if false, client connection is shutdown disregard of http headers
     KeepAliveEnabled = true
 
-    # if true, support ai gateway mode
-    EnableAiGateway = true
+    # if true, support ai gateway mode (default false)
+    EnableAiGateway = false 
     # if true, will estimate token usage if usage is not available in response
     EstimateToken = false
 
@@ -103,6 +103,7 @@ data:
 
     Modules = mod_unified_waf
     Modules = mod_ai_token_auth
+    Modules = mod_ai_route
     Modules = mod_body_process
     Modules = mod_ai_rate_limit
 
@@ -287,6 +288,15 @@ data:
     [[Reloaders.mod_body_process.NormalFileTasks]]
     ConfAPI         = "/inner-api/v1/configs/mod-body-process"
     ConfFileName    = "body_process_rule.data"
+    
+    # reloader for mod_ai_route
+    [Reloaders.mod_ai_route]
+    BFEReloadAPI    = "/reload/mod_ai_route"
+    ReloadFile      = "ai_route.data"
+    CopyFiles       = ["ai_route.data", "mod_ai_route.conf"]
+    [[Reloaders.mod_ai_route.NormalFileTasks]]
+    ConfAPI         = "/inner-api/v1/configs/ai-route"
+    ConfFileName    = "ai_route.data"
     
     # # reloader for tls_conf files, detail see https://www.bfe-networks.net/en_us/configuration/tls_conf/server_cert_conf.data/
     [Reloaders.tls_conf]
