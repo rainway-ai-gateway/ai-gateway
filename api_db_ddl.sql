@@ -378,8 +378,8 @@ CREATE TABLE `quota_plans` (
   `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
   `unlimited` TINYINT(1) DEFAULT 1 COMMENT '是否无限配额：0-有限，1-无限',
   `pass_when_no_enough_quota` TINYINT(1) DEFAULT 0 COMMENT '配额不足时是否放行：0-拒绝，1-放行',
-  `quota` BIGINT DEFAULT 0 COMMENT '配额总量',
-  `unit` VARCHAR(32) DEFAULT 'total_token' COMMENT '配额单位',
+  `quota` DECIMAL(18,8) DEFAULT 0 COMMENT '配额总量',
+  `unit` VARCHAR(32) DEFAULT 'total_token' COMMENT '配额单位：total_token/RMB',
   `reset_period` VARCHAR(16) DEFAULT 'never' COMMENT '配额重置周期：never/weekly/monthly，重置均基于日历周期（如自然周/自然月）',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -391,14 +391,35 @@ DROP TABLE IF EXISTS `quota_balances`;
 CREATE TABLE `quota_balances` (
   `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
   `quota_plan_id` BIGINT NOT NULL COMMENT '配额计划ID',
-  `used` BIGINT DEFAULT 0 COMMENT '已使用量',
-  `remaining` BIGINT DEFAULT 0 COMMENT '剩余量',
+  `used` DECIMAL(18,8) DEFAULT 0 COMMENT '已使用量',
+  `remaining` DECIMAL(18,8) DEFAULT 0 COMMENT '剩余量',
   `last_reset_at` DATETIME DEFAULT NULL COMMENT '上次重置时间',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   UNIQUE KEY `uk_quota_plan_id` (`quota_plan_id`),
   INDEX `idx_remaining` (`remaining`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='配额余额表';
+
+-- create model_prices (模型定价表)
+DROP TABLE IF EXISTS `model_prices`;
+CREATE TABLE `model_prices` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+  `provider` VARCHAR(255) NOT NULL COMMENT 'Provider / Cluster 标识',
+  `model` VARCHAR(255) NOT NULL COMMENT '模型名',
+  `base_model` VARCHAR(255) NOT NULL COMMENT '归一化基础模型名',
+  `mode` VARCHAR(50) NOT NULL COMMENT '模型模式',
+  `capabilities` JSON COMMENT '能力列表',
+  `supported_parameters` JSON COMMENT '支持的请求参数列表',
+  `limits` JSON COMMENT '限制对象',
+  `prices` JSON NOT NULL COMMENT '价格对象',
+  `price_currency` VARCHAR(10) DEFAULT 'RMB' COMMENT '币种',
+  `metadata` JSON COMMENT '元数据',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  UNIQUE KEY `uk_provider_model_mode` (`provider`, `model`, `mode`),
+  INDEX `idx_provider` (`provider`),
+  INDEX `idx_mode` (`mode`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='模型定价表';
 
 -- create rate_limit_policies (限流策略表)
 DROP TABLE IF EXISTS `rate_limit_policies`;

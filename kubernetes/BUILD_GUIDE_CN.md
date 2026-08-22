@@ -15,10 +15,10 @@
    - GitHub: https://github.com/bfenetworks/bfe
    
 2. **AI Gateway API (控制面 API)** - 负责策略/配置下发接口
-   - GitHub: https://github.com/yf-networks/ai-gateway-api
+   - GitHub: https://github.com/rainway-ai-gateway/ai-gateway-api
 
 3. **AI Gateway Web (控制面 Dashboard)** - 为控制面提供图形化操作界面 
-   - GitHub: https://github.com/yf-networks/ai-gateway-web
+   - GitHub: https://github.com/rainway-ai-gateway/ai-gateway-web
    
 4. **Service Controller** - 负责发现并同步后端服务
    - GitHub: https://github.com/bfenetworks/service-controller
@@ -232,12 +232,12 @@ AI Gateway API 是控制面核心组件，负责策略和配置下发接口。
 
 ### 1. 源码获取
 
-**GitHub 仓库**: [https://github.com/yf-networks/ai-gateway-api](https://github.com/yf-networks/ai-gateway-api)
+**GitHub 仓库**: [https://github.com/rainway-ai-gateway/ai-gateway-api](https://github.com/rainway-ai-gateway/ai-gateway-api)
 
 克隆源码：
 
 ```bash
-git clone https://github.com/yf-networks/ai-gateway-api.git
+git clone https://github.com/rainway-ai-gateway/ai-gateway-api.git
 cd ai-gateway-api
 git checkout v0.0.1
 ```
@@ -256,7 +256,7 @@ make docker
 
 **关键参数**: `DASHBOARD_VERSION`（可选）
 
-指定 Dashboard 前端资源的版本（来自 [yf-networks/ai-gateway-web](https://github.com/yf-networks/ai-gateway-web) 的 release）：
+指定 Dashboard 前端资源的版本（来自 [rainway-ai-gatewa/ai-gateway-web](https://github.com/rainway-ai-gateway/ai-gateway-web) 的 release）：
 
 ```bash
 make docker DASHBOARD_VERSION=v0.0.1
@@ -339,9 +339,9 @@ docker run -d \
 
 如有需要从源代码构建，请参见 `ai-gateway-web` 项目的编译指南：
 
-**GitHub 仓库**: [https://github.com/yf-networks/ai-gateway-web](https://github.com/yf-networks/ai-gateway-web)
+**GitHub 仓库**: [https://github.com/rainway-ai-gateway/ai-gateway-web](https://github.com/rainway-ai-gateway/ai-gateway-web)
 
-**编译文档**: [BUILD_GUIDE.md](https://github.com/yf-networks/ai-gateway-web/blob/develop/BUILD_GUIDE.md)
+**编译文档**: [BUILD_GUIDE.md](https://github.com/rainway-ai-gateway/ai-gateway-web/blob/develop/BUILD_GUIDE.md)
 
 ---
 
@@ -517,7 +517,7 @@ images:
     newTag: <your-vsn>            # 替换为您编译的版本
 
   # 2. AI Gateway API 控制面镜像（包含 Dashboard）
-  - name: ghcr.io/yf-networks/ai-gateway-api
+  - name: ghcr.io/rainway-ai-gateway/ai-gateway-api
     newName: ghcr.io/<your-org>/ai-gateway-api    # 替换为您的镜像地址
     newTag: <your-vsn>                    # 替换为您的镜像地址
 
@@ -789,8 +789,8 @@ kubectl logs -f -n ai-gateway-system -l app=bfe --all-containers=true --tail=100
   - 配置参考: https://www.bfe-networks.net/en_us/configuration/overview/
 
 - **AI Gateway API**
-  - GitHub: https://github.com/yf-networks/ai-gateway-api
-  - Dashboard 前端: https://github.com/yf-networks/ai-gateway-web
+  - GitHub: https://github.com/rainway-ai-gateway/ai-gateway-api
+  - Dashboard 前端: https://github.com/rainway-ai-gateway/ai-gateway-web
 
 - **llm-d inference simulator（示例后端模拟器）**
   - GitHub: https://github.com/llm-d/llm-d-inference-sim

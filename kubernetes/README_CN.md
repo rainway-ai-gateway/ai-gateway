@@ -66,7 +66,7 @@ images:
   - name: ghcr.io/bfenetworks/bfe
     newName: ghcr.io/your-org/bfe
     newTag: v1.8.4
-  - name: ghcr.io/yf-networks/ai-gateway-api
+  - name: ghcr.io/rainway-ai-gateway/ai-gateway-api
     newName: ghcr.io/your-org/ai-gateway-api
     newTag: v0.0.6
   - name: ghcr.io/bfenetworks/service-controller

@@ -3,7 +3,7 @@
 
 [English](README.md) | [简体中文](README_CN.md)
 
-# YF AI Gateway
+# Rainway AI Gateway
 
 AI Gateway is an open-source AI traffic gateway built on top of [BFE](https://github.com/bfenetworks/bfe). It provides unified API management, authentication, rate limiting, and intelligent routing for multiple AI model providers, giving developers a single entry point for all AI services.
 
@@ -15,8 +15,8 @@ AI Gateway consists of the following core components:
 
 | Component | Role | Description | Repository |
 |---|---|---|---|
-| **AI Gateway API** | Control plane | Open APIs for policy/config management and distribution | [yf-networks/ai-gateway-api](https://github.com/yf-networks/ai-gateway-api) |
-| **Dashboard** | Admin console | Web UI for visual management (bundled in API image) | [yf-networks/ai-gateway-web](https://github.com/yf-networks/ai-gateway-web) |
+| **AI Gateway API** | Control plane | Open APIs for policy/config management and distribution | [rainway-ai-gatewa/ai-gateway-api](https://github.com/rainway-ai-gateway/ai-gateway-api) |
+| **Dashboard** | Admin console | Web UI for visual management (bundled in API image) | [rainway-ai-gatewa/ai-gateway-web](https://github.com/rainway-ai-gateway/ai-gateway-web) |
 | **BFE** | Data plane | Traffic forwarding and access control | [bfenetworks/bfe](https://github.com/bfenetworks/bfe) |
 | **Conf Agent** | Config agent | Fetches config and triggers BFE hot reload | [bfenetworks/conf-agent](https://github.com/bfenetworks/conf-agent) |
 | **Log Reader** | Log collector | Reads BFE access logs and sends to Kafka | [bfenetworks/log-reader](https://github.com/bfenetworks/log-reader) |
@@ -59,7 +59,7 @@ AI Gateway consists of the following core components:
 > Or use standalone binary: `docker-compose up -d`
 
 ```bash
-git clone https://github.com/yf-networks/ai-gateway.git
+git clone https://github.com/rainway-ai-gateway/ai-gateway.git
 cd ai-gateway
 docker compose up -d
 ```
@@ -162,7 +162,7 @@ docker run -d --name ai-gateway \
   -v $(pwd)/conf/name_conf.data:/home/work/bfe/conf/name_conf.data \
   -v $(pwd)/conf/bfe.conf:/home/work/bfe/conf/bfe.conf \
   -v $(pwd)/conf/log-reader/:/home/work/log-reader/conf/ \
-  ghcr.io/yf-networks/ai-gateway:latest
+  ghcr.io/rainway-ai-gateway/ai-gateway:latest
 ```
 
 Dashboard: `http://localhost:8183` (admin / admin)
@@ -206,14 +206,14 @@ version: v0.3.0
 components:
   bfe:
     version: v1.8.4
-    image: ghcr.io/yf-networks/bfe:v1.8.4
+    image: ghcr.io/rainway-ai-gateway/bfe:v1.8.4
     provides:
       - bfe
       - conf-agent
       - log-reader
   ai-gateway-api:
     version: v0.0.6
-    image: ghcr.io/yf-networks/ai-gateway-api:v0.0.6
+    image: ghcr.io/rainway-ai-gateway/ai-gateway-api:v0.0.6
 ```
 
 Update `VERSIONS.yaml` → rebuild → tag a new product release.
@@ -240,8 +240,8 @@ AI Gateway is released under the [Apache License 2.0](LICENSE).
 ## References
 
 - [BFE](https://github.com/bfenetworks/bfe) — Data plane engine
-- [AI Gateway API](https://github.com/yf-networks/ai-gateway-api) — Control plane
-- [AI Gateway Web](https://github.com/yf-networks/ai-gateway-web) — Dashboard frontend
+- [AI Gateway API](https://github.com/rainway-ai-gateway/ai-gateway-api) — Control plane
+- [AI Gateway Web](https://github.com/rainway-ai-gateway/ai-gateway-web) — Dashboard frontend
 - [Conf Agent](https://github.com/bfenetworks/conf-agent) — Configuration agent
 - [Log Reader](https://github.com/bfenetworks/log-reader) — Access log collector
 - [Service Controller](https://github.com/bfenetworks/service-controller) — K8s service discovery

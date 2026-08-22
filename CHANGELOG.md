@@ -7,9 +7,9 @@
 | Component | Version |
 |---|---|
 | BFE | [v1.8.4](https://github.com/bfenetworks/bfe/releases/tag/v1.8.4) |
-| AI Gateway API | [v0.0.6](https://github.com/yf-networks/ai-gateway-api/releases/tag/v0.0.6) |
-| Dashboard | [v0.0.6](https://github.com/yf-networks/ai-gateway-web/releases/tag/v0.0.6) |
-| conf-agent | v0.0.5 ([yf-networks](https://github.com/yf-networks/conf-agent)) |
+| AI Gateway API | [v0.0.6](https://github.com/rainway-ai-gateway/ai-gateway-api/releases/tag/v0.0.6) |
+| Dashboard | [v0.0.6](https://github.com/rainway-ai-gateway/ai-gateway-web/releases/tag/v0.0.6) |
+| conf-agent | v0.0.5 ([rainway-ai-gatewa](https://github.com/rainway-ai-gateway/conf-agent)) |
 
 ### Added
 
@@ -33,14 +33,14 @@
 | Component | Version |
 |---|---|
 | BFE | v1.8.4 (develop build) |
-| AI Gateway API | [v0.0.5](https://github.com/yf-networks/ai-gateway-api/releases/tag/v0.0.5) |
-| Dashboard | [v0.0.5](https://github.com/yf-networks/ai-gateway-web/releases/tag/v0.0.5) |
-| conf-agent | v0.0.4 ([yf-networks](https://github.com/yf-networks/conf-agent)) |
+| AI Gateway API | [v0.0.5](https://github.com/rainway-ai-gateway/ai-gateway-api/releases/tag/v0.0.5) |
+| Dashboard | [v0.0.5](https://github.com/rainway-ai-gateway/ai-gateway-web/releases/tag/v0.0.5) |
+| conf-agent | v0.0.4 ([rainway-ai-gatewa](https://github.com/rainway-ai-gateway/conf-agent)) |
 | log-reader | [v1.0.0](https://github.com/bfenetworks/log-reader) |
 
 ### Changed
 
-- Bump AI Gateway API to v0.0.5 — API endpoint simplification, InstancePool auto-creation, breaking URL path changes (see [upgrade notes](https://github.com/yf-networks/ai-gateway-api/releases/tag/v0.0.5)).
+- Bump AI Gateway API to v0.0.5 — API endpoint simplification, InstancePool auto-creation, breaking URL path changes (see [upgrade notes](https://github.com/rainway-ai-gateway/ai-gateway-api/releases/tag/v0.0.5)).
 - Bump Dashboard to v0.0.5 — reduced module scope, cluster/consumer management enhancements, navigation reorganization.
 
 ### Added
@@ -74,8 +74,8 @@
 |---|---|
 | BFE | v1.8.4 (develop build) |
 | AI Gateway API | v0.0.4 (develop build) |
-| Dashboard | [v0.0.4](https://github.com/yf-networks/ai-gateway-web/releases/tag/v0.0.4) |
-| conf-agent | v0.0.4 ([yf-networks](https://github.com/yf-networks/conf-agent)) |
+| Dashboard | [v0.0.4](https://github.com/rainway-ai-gateway/ai-gateway-web/releases/tag/v0.0.4) |
+| conf-agent | v0.0.4 ([rainway-ai-gatewa](https://github.com/rainway-ai-gateway/conf-agent)) |
 
 ### Changed
 
@@ -94,9 +94,9 @@ First official release of AI Gateway — a product-level entry point that unifie
 | Component | Version |
 |---|---|
 | BFE | [v1.8.3](https://github.com/bfenetworks/bfe/releases/tag/v1.8.3) |
-| AI Gateway API | [v0.0.3](https://github.com/yf-networks/ai-gateway-api/releases/tag/v0.0.3) |
-| Dashboard | v0.0.3 ([ai-gateway-web](https://github.com/yf-networks/ai-gateway-web)) |
-| conf-agent | v0.0.3 ([yf-networks](https://github.com/yf-networks/conf-agent)) |
+| AI Gateway API | [v0.0.3](https://github.com/rainway-ai-gateway/ai-gateway-api/releases/tag/v0.0.3) |
+| Dashboard | v0.0.3 ([ai-gateway-web](https://github.com/rainway-ai-gateway/ai-gateway-web)) |
+| conf-agent | v0.0.3 ([rainway-ai-gatewa](https://github.com/rainway-ai-gateway/conf-agent)) |
 | Service Controller | v0.0.1 |
 
 ### Added

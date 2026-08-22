@@ -40,12 +40,12 @@ resources:
 #     newTag: v1.8.0-debug
 images:
   - name: ghcr.io/bfenetworks/bfe
-    newName: ghcr.nju.edu.cn/yf-networks/bfe
-    newTag: v1.8.4
+    newName: ghcr.nju.edu.cn/rainway-ai-gateway/bfe
+    newTag: v1.8.5
 
-  - name: ghcr.io/yf-networks/ai-gateway-api
-    newName: ghcr.nju.edu.cn/yf-networks/ai-gateway-api
-    newTag: v0.0.6
+  - name: ghcr.io/rainway-ai-gateway/ai-gateway-api
+    newName: ghcr.nju.edu.cn/rainway-ai-gateway/ai-gateway-api
+    newTag: v0.0.7
 
   - name: ghcr.io/bfenetworks/service-controller
     newName: ghcr.nju.edu.cn/bfenetworks/service-controller

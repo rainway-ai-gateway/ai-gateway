@@ -15,10 +15,10 @@ This guide covers building and deploying the following three core components:
    - GitHub: https://github.com/bfenetworks/bfe
 
 2. **AI Gateway API (Control Plane)** – policy/config management APIs (includes Dashboard)
-   - GitHub: https://github.com/yf-networks/ai-gateway-api
+   - GitHub: https://github.com/rainway-ai-gateway/ai-gateway-api
 
 3. **AI Gateway Web (Control Plane Dashboard)** – provides a graphical UI for the control plane
-   - GitHub: https://github.com/yf-networks/ai-gateway-web
+   - GitHub: https://github.com/rainway-ai-gateway/ai-gateway-web
 
 4. **Service Controller** – discovers and syncs backend Services into the control plane
    - GitHub: https://github.com/bfenetworks/service-controller
@@ -222,10 +222,10 @@ AI Gateway API is the control plane component providing policy/config APIs.
 
 ### 1. Get the Source
 
-**Repo**: https://github.com/yf-networks/ai-gateway-api
+**Repo**: https://github.com/rainway-ai-gateway/ai-gateway-api
 
 ```bash
-git clone https://github.com/yf-networks/ai-gateway-api.git
+git clone https://github.com/rainway-ai-gateway/ai-gateway-api.git
 cd ai-gateway-api
 git checkout v0.0.1
 ```
@@ -244,7 +244,7 @@ Notes:
 
 Optional parameter: `DASHBOARD_VERSION`
 
-The dashboard release version from https://github.com/yf-networks/ai-gateway-web:
+The dashboard release version from https://github.com/rainway-ai-gateway/ai-gateway-web:
 
 ```bash
 make docker DASHBOARD_VERSION=v0.0.1
@@ -323,9 +323,9 @@ When building the `ai-gateway-api` image, it automatically pulls the specified v
 
 If you need to build from source, refer to the build guide in the `ai-gateway-web` repository:
 
-**GitHub Repository**: [https://github.com/yf-networks/ai-gateway-web](https://github.com/yf-networks/ai-gateway-web)
+**GitHub Repository**: [https://github.com/rainway-ai-gateway/ai-gateway-web](https://github.com/rainway-ai-gateway/ai-gateway-web)
 
-**Build Guide**: [BUILD_GUIDE.md](https://github.com/yf-networks/ai-gateway-web/blob/develop/BUILD_GUIDE.md)
+**Build Guide**: [BUILD_GUIDE.md](https://github.com/rainway-ai-gateway/ai-gateway-web/blob/develop/BUILD_GUIDE.md)
 
 ---
 
@@ -488,7 +488,7 @@ images:
     newTag: <your-vsn>
 
   # 2. AI Gateway API control plane image (includes Dashboard)
-  - name: ghcr.io/yf-networks/ai-gateway-api
+  - name: ghcr.io/rainway-ai-gateway/ai-gateway-api
     newName: ghcr.io/<your-org>/ai-gateway-api
     newTag: <your-vsn>
 
@@ -760,8 +760,8 @@ kubectl logs -f -n ai-gateway-system -l app=bfe --all-containers=true --tail=100
   - Config reference: https://www.bfe-networks.net/en_us/configuration/overview/
 
 - **AI Gateway API**
-  - GitHub: https://github.com/yf-networks/ai-gateway-api
-  - Dashboard frontend: https://github.com/yf-networks/ai-gateway-web
+  - GitHub: https://github.com/rainway-ai-gateway/ai-gateway-api
+  - Dashboard frontend: https://github.com/rainway-ai-gateway/ai-gateway-web
 
 - **llm-d inference simulator (demo backend)**
   - GitHub: https://github.com/llm-d/llm-d-inference-sim

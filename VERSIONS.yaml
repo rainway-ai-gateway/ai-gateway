@@ -1,15 +1,15 @@
-version: v0.3.0
+version: v0.4.0
 components:
   bfe:
-    version: v1.8.4
+    version: v1.8.5
     source: image
-    image: ghcr.io/yf-networks/bfe:v1.8.4
+    image: ghcr.io/rainway-ai-gateway/bfe:v1.8.5
     provides:
       - bfe
       - conf-agent
       - log-reader
 
   ai-gateway-api:
-    version: v0.0.6
+    version: v0.0.7
     source: image
-    image: ghcr.io/yf-networks/ai-gateway-api:v0.0.6
+    image: ghcr.io/rainway-ai-gateway/ai-gateway-api:v0.0.7

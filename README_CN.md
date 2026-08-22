@@ -3,7 +3,7 @@
 
 [English](README.md) | 简体中文
 
-# YF AI Gateway
+# Rainway AI Gateway
 
 AI Gateway 是基于 [BFE](https://github.com/bfenetworks/bfe) 构建的开源 AI 流量网关，为多个 AI 模型提供商提供统一的 API 管理、认证、限流和智能路由能力，让开发者通过单一入口访问所有 AI 服务。
 
@@ -15,8 +15,8 @@ AI Gateway 包含如下核心组件：
 
 | 组件 | 角色 | 说明 | 仓库 |
 |---|---|---|---|
-| **AI Gateway API** | 控制面 | 对外提供 Open API，完成策略/配置的变更、存储和下发 | [yf-networks/ai-gateway-api](https://github.com/yf-networks/ai-gateway-api) |
-| **Dashboard** | 管理控制台 | Web 可视化管理界面（内置在 API 镜像中） | [yf-networks/ai-gateway-web](https://github.com/yf-networks/ai-gateway-web) |
+| **AI Gateway API** | 控制面 | 对外提供 Open API，完成策略/配置的变更、存储和下发 | [rainway-ai-gatewa/ai-gateway-api](https://github.com/rainway-ai-gateway/ai-gateway-api) |
+| **Dashboard** | 管理控制台 | Web 可视化管理界面（内置在 API 镜像中） | [rainway-ai-gatewa/ai-gateway-web](https://github.com/rainway-ai-gateway/ai-gateway-web) |
 | **BFE** | 数据面 | 负责流量转发与接入控制 | [bfenetworks/bfe](https://github.com/bfenetworks/bfe) |
 | **Conf Agent** | 配置代理 | 获取最新配置并触发 BFE 热加载 | [bfenetworks/conf-agent](https://github.com/bfenetworks/conf-agent) |
 | **Log Reader** | 日志采集 | 读取 BFE 访问日志并发送至 Kafka | [bfenetworks/log-reader](https://github.com/bfenetworks/log-reader) |
@@ -59,7 +59,7 @@ AI Gateway 包含如下核心组件：
 > 或使用独立二进制：`docker-compose up -d`
 
 ```bash
-git clone https://github.com/yf-networks/ai-gateway.git
+git clone https://github.com/rainway-ai-gateway/ai-gateway.git
 cd ai-gateway
 docker compose up -d
 ```
@@ -160,7 +160,7 @@ docker run -d --name ai-gateway \
   -v $(pwd)/conf/name_conf.data:/home/work/bfe/conf/name_conf.data \
   -v $(pwd)/conf/bfe.conf:/home/work/bfe/conf/bfe.conf \
   -v $(pwd)/conf/log-reader/:/home/work/log-reader/conf/ \
-  ghcr.io/yf-networks/ai-gateway:latest
+  ghcr.io/rainway-ai-gateway/ai-gateway:latest
 ```
 
 Dashboard：`http://localhost:8183`（admin / admin）
@@ -204,14 +204,14 @@ version: v0.3.0
 components:
   bfe:
     version: v1.8.4
-    image: ghcr.io/yf-networks/bfe:v1.8.4
+    image: ghcr.io/rainway-ai-gateway/bfe:v1.8.4
     provides:
       - bfe
       - conf-agent
       - log-reader
   ai-gateway-api:
     version: v0.0.6
-    image: ghcr.io/yf-networks/ai-gateway-api:v0.0.6
+    image: ghcr.io/rainway-ai-gateway/ai-gateway-api:v0.0.6
 ```
 
 更新 `VERSIONS.yaml` → 重新构建 → 打产品 tag 发布。
@@ -238,8 +238,8 @@ AI Gateway 基于 [Apache License 2.0](LICENSE) 发布。
 ## 参考资料
 
 - [BFE](https://github.com/bfenetworks/bfe) — 数据面引擎
-- [AI Gateway API](https://github.com/yf-networks/ai-gateway-api) — 控制面
-- [AI Gateway Web](https://github.com/yf-networks/ai-gateway-web) — Dashboard 前端
+- [AI Gateway API](https://github.com/rainway-ai-gateway/ai-gateway-api) — 控制面
+- [AI Gateway Web](https://github.com/rainway-ai-gateway/ai-gateway-web) — Dashboard 前端
 - [Conf Agent](https://github.com/bfenetworks/conf-agent) — 配置代理
 - [Log Reader](https://github.com/bfenetworks/log-reader) — 访问日志采集
 - [Service Controller](https://github.com/bfenetworks/service-controller) — K8s 服务发现
