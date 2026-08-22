@@ -38,7 +38,7 @@ services:
       retries: 10
 
   ai-gateway:
-    image: ghcr.nju.edu.cn/rainway-ai-gateway/ai-gateway:v0.3.0
+    image: ghcr.nju.edu.cn/rainway-ai-gateway/ai-gateway:v0.4.0
     container_name: ai-gateway
     ports:
       - "8080:8080"
