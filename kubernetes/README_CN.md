@@ -93,7 +93,10 @@ kubectl apply -f deploy/llm-d-inference-sim-deploy.yaml
 ### 4. 部署可观测栈（可选）
 
 ```bash
+kubectl apply -f deploy/doris-configmap.yaml
 kubectl apply -f deploy/doris.yaml
+
+kubectl apply -f deploy/grafana-configmap.yaml
 kubectl apply -f deploy/grafana.yaml
 ```
 

@@ -2,6 +2,7 @@ apiVersion: 1
 
 datasources:
   - name: Doris
+    uid: doris
     type: mysql
     access: proxy
     url: doris-fe.ai-gateway-system:9030

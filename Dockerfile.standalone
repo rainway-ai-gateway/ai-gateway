@@ -78,6 +78,7 @@ BFECluster              = "BFE-AI_product.szyf"
 BFEConfDir              = "/home/work/bfe/conf"
 BFEMonitorPort          = 8421
 BFEReloadTimeoutMs      = 1500
+VersionKeepCount        = 2
 
 ReloadIntervalMs        = 5000
 

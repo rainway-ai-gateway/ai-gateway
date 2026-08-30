@@ -294,6 +294,14 @@ CREATE TABLE api_keys (
   INDEX idx_route_rules_id (route_rules_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 comment = "api keys";
 
+-- create api_key_id_seq
+DROP TABLE IF EXISTS `api_key_id_seq`;
+CREATE TABLE `api_key_id_seq` (
+  `product_name` varchar(255) NOT NULL COMMENT '产品线名称',
+  `next_seq` bigint NOT NULL DEFAULT '1' COMMENT '下一个可用序号',
+  PRIMARY KEY (`product_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='API-Key ID 序号分配表';
+
 -- create api_key_tokens
 DROP TABLE IF EXISTS `api_key_tokens`;
 CREATE TABLE api_key_tokens (
@@ -303,7 +311,7 @@ CREATE TABLE api_key_tokens (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP  comment "更新时间",
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_key` (`api_key`)
-)ENGINE=InnoDB DEFAULT CHARSET=utf8 comment = "api-key存储表"; 
+)ENGINE=InnoDB DEFAULT CHARSET=utf8 comment = "api-key存储表";
 
 -- create ai_route_rules
 DROP TABLE IF EXISTS `ai_route_rules`;
@@ -381,24 +389,11 @@ CREATE TABLE `quota_plans` (
   `quota` DECIMAL(18,8) DEFAULT 0 COMMENT '配额总量',
   `unit` VARCHAR(32) DEFAULT 'total_token' COMMENT '配额单位：total_token/RMB',
   `reset_period` VARCHAR(16) DEFAULT 'never' COMMENT '配额重置周期：never/weekly/monthly，重置均基于日历周期（如自然周/自然月）',
+  `last_reset_at` DATETIME DEFAULT NULL COMMENT '上次重置时间',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   INDEX `idx_unlimited` (`unlimited`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='配额计划表';
-
--- create quota_balances (配额余额表)
-DROP TABLE IF EXISTS `quota_balances`;
-CREATE TABLE `quota_balances` (
-  `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
-  `quota_plan_id` BIGINT NOT NULL COMMENT '配额计划ID',
-  `used` DECIMAL(18,8) DEFAULT 0 COMMENT '已使用量',
-  `remaining` DECIMAL(18,8) DEFAULT 0 COMMENT '剩余量',
-  `last_reset_at` DATETIME DEFAULT NULL COMMENT '上次重置时间',
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  UNIQUE KEY `uk_quota_plan_id` (`quota_plan_id`),
-  INDEX `idx_remaining` (`remaining`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='配额余额表';
 
 -- create model_prices (模型定价表)
 DROP TABLE IF EXISTS `model_prices`;
@@ -412,6 +407,7 @@ CREATE TABLE `model_prices` (
   `supported_parameters` JSON COMMENT '支持的请求参数列表',
   `limits` JSON COMMENT '限制对象',
   `prices` JSON NOT NULL COMMENT '价格对象',
+  `tier_prices` JSON COMMENT '分时段价格对象',
   `price_currency` VARCHAR(10) DEFAULT 'RMB' COMMENT '币种',
   `metadata` JSON COMMENT '元数据',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -420,6 +416,24 @@ CREATE TABLE `model_prices` (
   INDEX `idx_provider` (`provider`),
   INDEX `idx_mode` (`mode`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='模型定价表';
+
+-- create providers (模型提供商表)
+DROP TABLE IF EXISTS `providers`;
+CREATE TABLE `providers` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+  `name` VARCHAR(255) NOT NULL COMMENT 'Provider 标识',
+  `description` VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '描述',
+  `model_endpoint` JSON COMMENT '模型发现端点配置',
+  `models` JSON COMMENT '支持的模型列表',
+  `api_keys` JSON COMMENT 'API key 列表',
+  `instance_pool` JSON NOT NULL COMMENT '实例池列表',
+  `model_protocols` JSON NOT NULL COMMENT '支持的模型协议列表',
+  `time_zone` VARCHAR(255) NOT NULL DEFAULT 'Asia/Shanghai' COMMENT '计算时段所使用的时区',
+  `tiers` JSON COMMENT '时段 tier 定义列表',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  UNIQUE KEY `uk_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='模型提供商表';
 
 -- create rate_limit_policies (限流策略表)
 DROP TABLE IF EXISTS `rate_limit_policies`;
@@ -457,7 +471,7 @@ insert into products (id, name, `description`, mail_list, contact_person, create
 insert into user_products (user_id, product_id, created_at, updated_at) values (2, 2, now(), now());
 
 
--- pools init 
+-- pools init
 INSERT INTO `pools` ( `id`, `name`, `product_id`, `ready`, `instance_detail`, `type`, `tag`, `role`, `created_at`, `updated_at`) VALUES ( 1, 'BFE.aipool', 1, 1, '[{"Name":"127.0.0.1","Addr":"127.0.0.1","Port":8080,"Ports":{"Default":8080},"tags":{"key":"value"},"Weight":1,"Disable":false}]', 1, 1, 'COMMON', NOW(), NOW());
 -- bfe_clusters init
 INSERT INTO `bfe_clusters` ( `id`, `name`, `pool_name`, `capacity`, `enabled`, `gtc_enabled`, `gtc_manual_enabled`, `exempt_traffic_check`, `created_at`, `updated_at`) VALUES ( 1, 'BFE-AI_product.szyf', 'BFE.aipool', 0, 1, 1, 1, 0, NOW(), NOW());

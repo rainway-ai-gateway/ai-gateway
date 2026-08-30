@@ -60,9 +60,9 @@ data:
     KeepAliveEnabled = true
 
     # if true, support ai gateway mode (default false)
-    EnableAiGateway = true 
+    EnableAiGateway = true
     # if true, will estimate token usage if usage is not available in response
-    EstimateToken = true 
+    EstimateToken = true
     # max size in bytes to buffer request body for rewriting/fallback (default 2MB, max 8MB)
     AccessibleBodySize = 2097152
     # max total bytes of all active bytes_body buffers (0 means unlimited)
@@ -84,7 +84,7 @@ data:
     ClusterConf = server_data_conf/cluster_conf.data
     NameConf = server_data_conf/name_conf.data
 
-    # gslb related confs 
+    # gslb related confs
     ClusterTableConf = cluster_conf/cluster_table.data
     GslbConf = cluster_conf/gslb.data
 
@@ -149,7 +149,7 @@ data:
     #     TLS_RSA_WITH_3DES_EDE_CBC_SHA
     #
     # Note:
-    # -. Do not use cipher suite with 3DES which is insecure now 
+    # -. Do not use cipher suite with 3DES which is insecure now
     #    and with poor performance
     #
     # -. Equivalent cipher suites (cipher suites with same priority in server side):
@@ -166,9 +166,9 @@ data:
 
     # supported curve preference settings
     #
-    # curves implemented in golang: 
-    #     CurveP256 
-    #     CurveP384 
+    # curves implemented in golang:
+    #     CurveP256
+    #     CurveP384
     #     CurveP521
     #
     # Note:
@@ -176,7 +176,7 @@ data:
     #
     CurvePreferences=CurveP256
 
-    # support Sslv2 ClientHello for compatible with ancient 
+    # support Sslv2 ClientHello for compatible with ancient
     # TLS capable clients (mozilla 5, java 5/6, openssl 0.9.8 etc)
     EnableSslv2ClientHello = true
 
@@ -230,33 +230,34 @@ data:
     BackupCount = 2
     Format      = "[%D %T] [%L] [%S] %M"
     StdOut      = false
-    
+
     [Basic]
     BFECluster              = "BFE-AI_product.szyf"
     BFEConfDir              = "/home/work/bfe/conf"
     BFEMonitorPort          = 8421
     BFEReloadTimeoutMs      = 1500
-    
+    VersionKeepCount        = 2
+
     ReloadIntervalMs        = 5000
-    
+
     ConfServer              = "http://ai-gateway-api.ai-gateway-system.svc.cluster.local:8183"
     # Token 获取参考 https://github.com/bfenetworks/dashboard/blob/develop/docs/zh-cn/user-guide/system-view/user-management.md#token%E7%AE%A1%E7%90%86
     ConfTaskHeaders         = {"Authorization" = "Token c5QFb-MrlKktJbOid2M3"}
     ConfTaskTimeoutMs       = 5000
-    
+
     ExtraFileServer         = "http://ai-gateway-api.ai-gateway-system.svc.cluster.local:8183/inner-api/v1/configs/extra_files/"
     # Token 获取参考 https://github.com/bfenetworks/dashboard/blob/develop/docs/zh-cn/user-guide/system-view/user-management.md#token%E7%AE%A1%E7%90%86
     ExtraFileTaskHeaders    = {"Authorization" = "Token c5QFb-MrlKktJbOid2M3"}
     ExtraFileTaskTimeoutMs  = 1500
-    
-    
+
+
     # reloader for server_data_config files, detail see https://www.bfe-networks.net/en_us/configuration/server_data_conf/host_rule.data/
     [Reloaders.server_data_conf]
     CopyFiles       = ["cluster_conf.data", "host_rule.data", "name_conf.data", "route_rule.data", "vip_rule.data"]
     [[Reloaders.server_data_conf.MultiKeyFileTasks]]
     ConfAPI         = "/inner-api/v1/configs/tls_conf/server_data_conf"
     Key2ConfFile    = {"HostTable" = "host_rule.data", "RouteTable" = "route_rule.data", "ClusterConf" = "cluster_conf.data"}
-    
+
     # # reloader for cluster_conf files, detail see https://www.bfe-networks.net/en_us/configuration/cluster_conf/gslb.data/
     [Reloaders.cluster_conf]
     BFEReloadAPI    = "/reload/gslb_data_conf"
@@ -267,8 +268,8 @@ data:
     [[Reloaders.cluster_conf.NormalFileTasks]]
     ConfAPI         = "/inner-api/v1/configs/gslb_data/gslb"
     ConfFileName    = "gslb.data"
-    
-    
+
+
     [Reloaders.mod_ai_token_auth]
     BFEReloadAPI    = "/reload/mod_ai_token_auth"
     ReloadFile = "token_rule.data"
@@ -276,7 +277,7 @@ data:
     [[Reloaders.mod_ai_token_auth.NormalFileTasks]]
     ConfAPI         = "/inner-api/v1/configs/mod-api-key"
     ConfFileName    = "token_rule.data"
-    
+
     [Reloaders.mod_ai_rate_limit]
     BFEReloadAPI    = "/reload/mod_ai_rate_limit"
     ReloadFile = "ai_rate_limit.data"
@@ -284,7 +285,7 @@ data:
     [[Reloaders.mod_ai_rate_limit.NormalFileTasks]]
     ConfAPI         = "/inner-api/v1/configs/rate-limit-policy"
     ConfFileName    = "ai_rate_limit.data"
-    
+
     [Reloaders.mod_body_process]
     BFEReloadAPI    = "/reload/mod_body_process"
     ReloadFile = "body_process_rule.data"
@@ -292,7 +293,7 @@ data:
     [[Reloaders.mod_body_process.NormalFileTasks]]
     ConfAPI         = "/inner-api/v1/configs/mod-body-process"
     ConfFileName    = "body_process_rule.data"
-    
+
     # reloader for mod_ai_route
     [Reloaders.mod_ai_route]
     BFEReloadAPI    = "/reload/mod_ai_route"
@@ -301,7 +302,7 @@ data:
     [[Reloaders.mod_ai_route.NormalFileTasks]]
     ConfAPI         = "/inner-api/v1/configs/ai-route"
     ConfFileName    = "ai_route.data"
-    
+
     # # reloader for tls_conf files, detail see https://www.bfe-networks.net/en_us/configuration/tls_conf/server_cert_conf.data/
     [Reloaders.tls_conf]
     CopyFiles      = ["client_ca", "client_crl", "server_cert_conf.data", "session_ticket_key.data", "tls_rule_conf.data"]
@@ -337,7 +338,7 @@ data:
   mod_kafka.conf: |
     [Basic]
     DataPath = kafka_config.data
-    OpenDebug = true 
+    OpenDebug = true
 
     [kafka]
     # Brokers = kafka1:9092,kafka2:9092
@@ -401,16 +402,28 @@ data:
     FieldNames= write_client_time
     FieldNames= connect_backend_time
     FieldNames= proxy_delay_time
-    FieldNames= ai_apikey
+    FieldNames= ai_apikey_id
     FieldNames= ai_apikeytags
     FieldNames= ai_requested_model
-    FieldNames= ai_mapped_model
+    FieldNames= ai_target_model
     FieldNames= ai_stream
-    FieldNames= ai_prompt_tokens
+    FieldNames= ai_input_tokens
     FieldNames= ai_output_tokens
     FieldNames= ai_total_tokens
+    FieldNames= ai_audio_input_tokens
+    FieldNames= ai_audio_output_tokens
+    FieldNames= ai_image_count
     FieldNames= ai_ttft_us
     FieldNames= ai_tpot_us
     FieldNames= ai_rate_limit_hits
     FieldNames= ai_auth_reject_reason
     FieldNames= ai_auth_reject_quota_plans
+    FieldNames= ai_provider
+    FieldNames= ai_protocol
+    FieldNames= ai_mode
+    FieldNames= ai_retry_count
+    FieldNames= ai_cost_value
+    FieldNames= ai_cost_currency
+    FieldNames= ai_route_rule_hits
+    FieldNames= ai_cluster_key_names
+    FieldNames= ai_auth_hit_quota_plans
