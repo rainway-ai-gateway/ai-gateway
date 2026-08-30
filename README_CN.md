@@ -20,7 +20,6 @@ AI Gateway 包含如下核心组件：
 | **BFE** | 数据面 | 负责流量转发与接入控制 | [bfenetworks/bfe](https://github.com/bfenetworks/bfe) |
 | **Conf Agent** | 配置代理 | 获取最新配置并触发 BFE 热加载 | [bfenetworks/conf-agent](https://github.com/bfenetworks/conf-agent) |
 | **Log Reader** | 日志采集 | 读取 BFE 访问日志并发送至 Kafka | [bfenetworks/log-reader](https://github.com/bfenetworks/log-reader) |
-| **Service Controller** | 服务发现 | 发现并同步 K8s 后端服务（仅 K8s 部署） | [bfenetworks/service-controller](https://github.com/bfenetworks/service-controller) |
 
 ## 主要功能
 
@@ -242,4 +241,3 @@ AI Gateway 基于 [Apache License 2.0](LICENSE) 发布。
 - [AI Gateway Web](https://github.com/rainway-ai-gateway/ai-gateway-web) — Dashboard 前端
 - [Conf Agent](https://github.com/bfenetworks/conf-agent) — 配置代理
 - [Log Reader](https://github.com/bfenetworks/log-reader) — 访问日志采集
-- [Service Controller](https://github.com/bfenetworks/service-controller) — K8s 服务发现

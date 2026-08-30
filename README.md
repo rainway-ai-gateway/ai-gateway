@@ -20,7 +20,6 @@ AI Gateway consists of the following core components:
 | **BFE** | Data plane | Traffic forwarding and access control | [bfenetworks/bfe](https://github.com/bfenetworks/bfe) |
 | **Conf Agent** | Config agent | Fetches config and triggers BFE hot reload | [bfenetworks/conf-agent](https://github.com/bfenetworks/conf-agent) |
 | **Log Reader** | Log collector | Reads BFE access logs and sends to Kafka | [bfenetworks/log-reader](https://github.com/bfenetworks/log-reader) |
-| **Service Controller** | Service discovery | Discovers and syncs K8s backend services (K8s only) | [bfenetworks/service-controller](https://github.com/bfenetworks/service-controller) |
 
 ## Key Features
 
@@ -244,4 +243,3 @@ AI Gateway is released under the [Apache License 2.0](LICENSE).
 - [AI Gateway Web](https://github.com/rainway-ai-gateway/ai-gateway-web) — Dashboard frontend
 - [Conf Agent](https://github.com/bfenetworks/conf-agent) — Configuration agent
 - [Log Reader](https://github.com/bfenetworks/log-reader) — Access log collector
-- [Service Controller](https://github.com/bfenetworks/service-controller) — K8s service discovery
