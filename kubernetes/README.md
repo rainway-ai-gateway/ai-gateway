@@ -11,7 +11,7 @@ This deployment demonstrates the interaction of several key components in the `a
 - **Data plane** (bfe with conf-agent + log-reader): traffic forwarding, access control, and access log collection
 - **Control plane** (ai-gateway-api): configuration/policy delivery API
 - **Base dependencies** (MySQL, Redis, Kafka): storage and messaging services
-- **Service discovery** (service-controller): discovers and syncs backend services
+- ~~**Service discovery** (service-controller): discovers and syncs backend services~~ — temporarily disabled, pending refactor
 - **Demo backend** (llm-d inference simulator): validates routing
 
 Optional observability stack (applied separately to `default` namespace):
@@ -44,7 +44,7 @@ Optional observability stack (applied separately to `default` namespace):
 | `mysql-deploy.yaml` | MySQL (Deployment, Service, init ConfigMap, init Job) |
 | `redis-deploy.yaml` | Redis Deployment and Service |
 | `kafka-deploy.yaml` | Kafka (StatefulSet, KRaft single-node, Service) |
-| `service-controller-deploy.yaml` | Service discovery controller |
+| `service-controller-deploy.yaml` | Service discovery controller (commented out in `kustomization.yaml` — pending refactor) |
 | `llm-d-inference-sim-deploy.yaml` | Demo backend inference simulator (apply separately) |
 | `doris.yaml` | Doris FE + BE + init Job (apply separately, optional) |
 | `grafana.yaml` | Grafana + pre-provisioned dashboard (apply separately, optional) |
@@ -80,7 +80,7 @@ images:
 kubectl apply -k .
 ```
 
-Deploys: bfe (with conf-agent + log-reader), ai-gateway-api (with Dashboard), mysql, redis, kafka, service-controller.
+Deploys: bfe (with conf-agent + log-reader), ai-gateway-api (with Dashboard), mysql, redis, kafka. Service-controller is commented out in `kustomization.yaml` (pending refactor).
 
 ### 3. Deploy Test Service (Optional)
 

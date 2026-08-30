@@ -11,7 +11,7 @@
 - **数据面**（bfe + conf-agent + log-reader）：流量转发、接入控制与访问日志采集
 - **控制面**（ai-gateway-api）：策略/配置下发接口
 - **基础依赖**（MySQL、Redis、Kafka）：为控制面提供存储与消息服务
-- **服务发现**（service-controller）：发现并同步后端服务
+- ~~**服务发现**（service-controller）：发现并同步后端服务~~ — 暂未启用，正在重构中
 - **示例后端**（llm-d inference simulator）：验证路由
 
 可选可观测栈（单独部署在 `default` 命名空间）：
@@ -44,7 +44,7 @@
 | `mysql-deploy.yaml` | MySQL（Deployment、Service、初始化 ConfigMap、初始化 Job） |
 | `redis-deploy.yaml` | Redis Deployment 与 Service |
 | `kafka-deploy.yaml` | Kafka（StatefulSet、KRaft 单节点、Service） |
-| `service-controller-deploy.yaml` | 服务发现控制器 |
+| `service-controller-deploy.yaml` | 服务发现控制器（已在 `kustomization.yaml` 中注释，重构中暂未启用） |
 | `llm-d-inference-sim-deploy.yaml` | 示例后端推理模拟服务（单独 apply） |
 | `doris.yaml` | Doris FE + BE + 初始化 Job（单独 apply，可选） |
 | `grafana.yaml` | Grafana + 预配看板（单独 apply，可选） |
@@ -80,7 +80,7 @@ images:
 kubectl apply -k .
 ```
 
-部署：bfe（含 conf-agent + log-reader）、ai-gateway-api（含 Dashboard）、mysql、redis、kafka、service-controller。
+部署：bfe（含 conf-agent + log-reader）、ai-gateway-api（含 Dashboard）、mysql、redis、kafka。service-controller 已在 `kustomization.yaml` 中注释（重构中暂未启用）。
 
 ### 3. 部署测试服务（可选）
 

@@ -1,5 +1,84 @@
 # Changelog
 
+## [v0.5.0] — 2026-08-30
+
+### Updated Components
+
+| Component | Version |
+|---|---|
+| BFE | [v1.8.6](https://github.com/bfenetworks/bfe/releases/tag/v1.8.6) |
+| AI Gateway API | [v0.0.8](https://github.com/rainway-ai-gateway/ai-gateway-api/releases/tag/v0.0.8) |
+| Dashboard | [v0.0.8](https://github.com/rainway-ai-gateway/ai-gateway-web/releases/tag/v0.0.8) |
+| Observability | [v0.0.1](https://github.com/rainway-ai-gateway/ai-gateway-observability/releases/tag/v0.0.1) |
+| conf-agent | [v0.0.6](https://github.com/rainway-ai-gateway/conf-agent/releases/tag/v0.0.6) |
+
+### Added
+
+- **Observability stack restored**: full pipeline re-integrated against `bfe-access-pb` v0.2.0 schema (unavailable in v0.4.0).
+- Enriched Doris schema: ~30 new detail-table columns, 13 new aggregate-table dimensions/metrics (provider, protocol, mode, cost, cache, audio/image tokens, retry count, `level1`–`level5` tag slots).
+- `scripts/sync-grafana.sh` and `scripts/sync-doris.sh`: pull configs from `ai-gateway-observability` by tag, render templates for both Docker Compose and K8s targets. `make sync-grafana`, `make sync-doris`, `make sync` targets. `OBS_VERSION` added to `VERSIONS.yaml`.
+- K8s manifests split into auto-generated ConfigMap files (`doris-configmap.yaml`, `grafana-configmap.yaml`) and manually-maintained workload files.
+- Doris FE healthcheck in Docker Compose with `service_healthy` ordering — fixes cold-start deadlock.
+- Grafana datasource now declares explicit `uid: doris` for stable panel binding.
+
+### Changed
+
+- Bump BFE to v1.8.6, AI Gateway API to v0.0.8, Dashboard to v0.0.8.
+- K8s `kustomization.yaml` image tags bumped to match (previously stale at v1.8.4 / v0.0.6 since v0.3.0).
+- K8s deploy commands now two-step (ConfigMap + workload).
+
+### Breaking Changes
+
+- **Doris schema incompatible with v0.4.0**: field renames (`ai_apikey_id`, `ai_target_model`, `input_tokens`, `level1`–`level5`) plus many new columns. Upgrades require dropping and re-creating `bfe_observability`.
+- **Grafana datasource** now requires `uid: doris`; old name-only references show "No data" until updated.
+
+### Fixed
+
+- Doris FE/BE cold-start deadlock in Docker Compose (FE `waitForReady` vs BE wait-for-9030) — fixed by FE healthcheck + `service_healthy` gating.
+
+---
+
+## [v0.4.0] — 2026-08-21
+
+### Updated Components
+
+| Component | Version |
+|---|---|
+| BFE | [v1.8.5](https://github.com/bfenetworks/bfe/releases/tag/v1.8.5) |
+| AI Gateway API | [v0.0.7](https://github.com/rainway-ai-gateway/ai-gateway-api/releases/tag/v0.0.7) |
+| Dashboard | [v0.0.7](https://github.com/rainway-ai-gateway/ai-gateway-web/releases/tag/v0.0.7) |
+| Log Reader | [v1.1.0](https://github.com/bfenetworks/log-reader/releases/tag/v1.1.0) |
+| conf-agent | v0.0.5 (unchanged) |
+
+### ⚠️ Observability not available
+
+Log Reader v1.1.0 upgraded to `bfe-access-pb` v0.2.0 with field renames; Kafka / Doris / Grafana were not re-integrated. Compose `--profile observability` and K8s `doris.yaml` / `grafana.yaml` do not work in this release. Core gateway functionality unaffected; observability restored in v0.5.0.
+
+### Added
+
+- **Model pricing**: new Model Pricing module (Dashboard + API) backed by `model_prices` table; `quota_plan.unit` supports `RMB`.
+- **Multi-API-Key routing**: clusters support `keys` (name/key/weight) + `key_policy`, with weighted routing across a cluster's keys.
+- **Provider/model prefix routing**: `match_prefix` / `strip_prefix` for aggregated providers (e.g. OpenRouter).
+- **Route-rule fallbacks** + `req_body_json_prefix_in` condition primitive.
+- **Rebrand**: org / image registry → `rainway-ai-gateway`; route-rule fields renamed to `snake_case`.
+
+### Changed
+
+- Bump BFE to v1.8.5, AI Gateway API to v0.0.7, Dashboard to v0.0.7, Log Reader to v1.1.0.
+
+### Breaking Changes
+
+- **Database schema**: new `model_prices` table; `quota_plans.quota` and `quota_balances.used/remaining` changed from `BIGINT → DECIMAL(18,8)`. New deployments auto-init via `api_db_ddl.sql`; **v0.3.0 upgrades require manual migration**.
+- **Log Reader field renames** (`bfe-access-pb` v0.2.0): `ai_apikey → ai_apikey_id`, `ai_mapped_model → ai_target_model`, `ai_prompt_tokens → ai_input_tokens`.
+
+### Fixed
+
+- BFE: RMB cost calculation for streaming responses, token-auth default rule path.
+- API: route-rule reference deletion checks, quota/Redis sync, model-pricing validation.
+- Dashboard: port sync, secret masking, pricing validation.
+
+---
+
 ## [v0.3.0] — 2026-08-07
 
 ### Updated Components
