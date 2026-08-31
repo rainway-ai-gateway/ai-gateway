@@ -40,6 +40,8 @@ services:
   ai-gateway:
     image: ghcr.nju.edu.cn/rainway-ai-gateway/ai-gateway:v0.5.0
     container_name: ai-gateway
+    environment:
+      TZ: Asia/Shanghai
     ports:
       - "8080:8080"
       - "8183:8183"
