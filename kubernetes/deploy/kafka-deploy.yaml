@@ -60,6 +60,10 @@ spec:
           value: "true"
         - name: KAFKA_NUM_PARTITIONS
           value: "2"
+        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+          value: "1"
         resources:
           requests:
             cpu: 100m
@@ -95,3 +99,36 @@ spec:
     port: 9093
     targetPort: 9093
   type: NodePort
+
+---
+# Creates the required topics (mirrors docker-compose kafka-init).
+# Run once after kafka is up: kubectl apply -f deploy/kafka-deploy.yaml (Job included)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-init
+  namespace: ai-gateway-system
+  labels:
+    app: kafka-init
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: kafka-init
+        image: ghcr.io/cc14514/kafka:3.7.1
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -eu
+            echo "Waiting for Kafka to be ready..."
+            until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka.ai-gateway-system.svc.cluster.local:9092 --list 2>/dev/null; do
+              echo "  Kafka not ready, retrying in 3s..."
+              sleep 3
+            done
+            echo "Creating topics..."
+            /opt/kafka/bin/kafka-topics.sh --create --if-not-exists --bootstrap-server kafka.ai-gateway-system.svc.cluster.local:9092 --topic bfe_ai_log --partitions 2 --replication-factor 1
+            /opt/kafka/bin/kafka-topics.sh --create --if-not-exists --bootstrap-server kafka.ai-gateway-system.svc.cluster.local:9092 --topic bfe_ai_log_dlq --partitions 2 --replication-factor 1
+            echo "Kafka initialization complete."
