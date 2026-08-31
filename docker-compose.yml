@@ -162,7 +162,7 @@ services:
       - "8040:8040"
     depends_on:
       doris-fe:
-        condition: service_healthy
+        condition: service_started
     profiles:
       - observability
 

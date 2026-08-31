@@ -9,6 +9,7 @@
 | BFE | [v1.8.6](https://github.com/bfenetworks/bfe/releases/tag/v1.8.6) |
 | AI Gateway API | [v0.0.8](https://github.com/rainway-ai-gateway/ai-gateway-api/releases/tag/v0.0.8) |
 | Dashboard | [v0.0.8](https://github.com/rainway-ai-gateway/ai-gateway-web/releases/tag/v0.0.8) |
+| Log Reader | [v1.2.0](https://github.com/bfenetworks/log-reader/releases/tag/v1.2.0) |
 | Observability | [v0.0.1](https://github.com/rainway-ai-gateway/ai-gateway-observability/releases/tag/v0.0.1) |
 | conf-agent | [v0.0.6](https://github.com/rainway-ai-gateway/conf-agent/releases/tag/v0.0.6) |
 
