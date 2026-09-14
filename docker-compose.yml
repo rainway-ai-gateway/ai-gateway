@@ -42,6 +42,8 @@ services:
     container_name: ai-gateway
     environment:
       TZ: Asia/Shanghai
+      AI_GATEWAY_EPP_TLS_CERT: /home/work/epp/certs/epp-cert.pem
+      AI_GATEWAY_EPP_TLS_KEY: /home/work/epp/certs/epp-key.pem
     ports:
       - "8080:8080"
       - "8183:8183"
@@ -49,9 +51,6 @@ services:
       - "8421:8421"
       - "8443:8443"
       - "8992:8992"
-      - "9002:9002"
-      - "9003:9003"
-      - "9090:9090"
 
     volumes:
       - ./conf/ai_gateway_api.toml:/home/work/api-server/conf/ai_gateway_api.toml
@@ -59,6 +58,7 @@ services:
       - ./conf/name_conf.data:/home/work/bfe/conf/name_conf.data
       - ./conf/bfe.conf:/home/work/bfe/conf/bfe.conf
       - ./conf/log-reader/:/home/work/log-reader/conf/
+      - ./conf/epp/:/home/work/epp/certs/:ro
     depends_on:
       mysql:
         condition: service_healthy

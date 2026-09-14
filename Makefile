@@ -8,6 +8,7 @@ VERSION ?= $(shell grep -E '^version:' VERSIONS.yaml | awk '{print $$NF}')
 
 BFE_IMAGE ?= $(shell grep -A4 '  bfe:' VERSIONS.yaml | grep 'image:' | head -1 | sed -E 's/.*image: *//')
 API_IMAGE ?= $(shell grep -A4 'ai-gateway-api:' VERSIONS.yaml | grep 'image:' | head -1 | sed -E 's/.*image: *//')
+EPP_IMAGE ?= $(shell grep -A4 'ai-gateway-epp:' VERSIONS.yaml | grep 'image:' | head -1 | sed -E 's/.*image: *//')
 OBS_VERSION ?= $(shell grep -A4 'observability:' VERSIONS.yaml | grep 'version:' | head -1 | awk '{print $$NF}')
 
 REGISTRY ?=
@@ -44,10 +45,12 @@ docker-standalone:
 	@echo "  Variant: $(VARIANT)"
 	@echo "  BFE    : $(BFE_IMAGE)"
 	@echo "  API    : $(API_IMAGE)"
+	@echo "  EPP    : $(EPP_IMAGE)"
 	docker build \
 		$$(if [ "$(NO_CACHE)" = "true" ]; then echo "--no-cache"; fi) \
 		--build-arg BFE_IMAGE=$(BFE_IMAGE) \
 		--build-arg API_IMAGE=$(API_IMAGE) \
+		--build-arg EPP_IMAGE=$(EPP_IMAGE) \
 		--build-arg VARIANT=$(VARIANT) \
 		-t $(IMAGE_LOCAL) \
 		-t $(IMAGE_LATEST_LOCAL) \
@@ -63,11 +66,13 @@ docker-standalone-push:
 	@echo "  Variant  : $(VARIANT)"
 	@echo "  BFE      : $(BFE_IMAGE)"
 	@echo "  API      : $(API_IMAGE)"
+	@echo "  EPP      : $(EPP_IMAGE)"
 	docker buildx build \
 		$$(if [ "$(NO_CACHE)" = "true" ]; then echo "--no-cache"; fi) \
 		--platform $(PLATFORMS) \
 		--build-arg BFE_IMAGE=$(BFE_IMAGE) \
 		--build-arg API_IMAGE=$(API_IMAGE) \
+		--build-arg EPP_IMAGE=$(EPP_IMAGE) \
 		--build-arg API_VERSION=$(API_VERSION) \
 		--build-arg VARIANT=$(VARIANT) \
 		-t $(IMAGE_REMOTE) \

@@ -8,7 +8,11 @@ components:
       - bfe
       - conf-agent
       - log-reader
-      - epp
+
+  ai-gateway-epp:
+    version: v0.0.1
+    source: image
+    image: ghcr.io/rainway-ai-gateway/ai-gateway-epp:v0.0.1
 
   ai-gateway-api:
     version: v0.0.9

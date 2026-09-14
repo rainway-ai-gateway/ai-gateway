@@ -14,9 +14,11 @@
 #
 ARG BFE_IMAGE=ghcr.io/bfenetworks/bfe:v1.8.2
 ARG API_IMAGE=ghcr.io/rainway-ai-gateway/ai-gateway-api:v0.0.2
+ARG EPP_IMAGE=ghcr.io/rainway-ai-gateway/ai-gateway-epp:v0.0.1
 
 FROM ${BFE_IMAGE} AS bfe
 FROM ${API_IMAGE} AS api
+FROM ${EPP_IMAGE} AS epp
 
 FROM alpine:3.19
 
@@ -45,14 +47,15 @@ RUN set -ex; \
     && mkdir -p /home/work/log-reader/bin \
     && mkdir -p /home/work/log-reader/conf/mod_kafka \
     && mkdir -p /home/work/log-reader/log \
-    && mkdir -p /home/work/epp/log
+    && mkdir -p /home/work/epp/log \
+    && mkdir -p /home/work/epp/certs
 
 COPY --from=bfe /home/work/bfe/bin/bfe /home/work/bfe/bin/bfe
 COPY --from=bfe /home/work/bfe/conf /home/work/bfe/conf
 COPY --from=bfe /home/work/conf-agent/conf-agent /home/work/conf-agent/conf-agent
 COPY --from=bfe /home/work/log-reader/bin/log-reader /home/work/log-reader/bin/log-reader
 COPY --from=bfe /home/work/log-reader/conf/ /home/work/log-reader/conf/
-COPY --from=bfe /home/work/epp/epp /home/work/epp/epp
+COPY --from=epp /home/work/epp/epp /home/work/epp/epp
 
 COPY --from=api /home/work/api-server/api-server /home/work/api-server/api-server
 COPY --from=api /home/work/api-server/conf /home/work/api-server/conf
