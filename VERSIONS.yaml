@@ -1,18 +1,19 @@
-version: v0.5.0
+version: v0.6.0
 components:
   bfe:
-    version: v1.8.6
+    version: v1.8.7
     source: image
-    image: ghcr.io/rainway-ai-gateway/bfe:v1.8.6
+    image: ghcr.io/rainway-ai-gateway/bfe:v1.8.7
     provides:
       - bfe
       - conf-agent
       - log-reader
+      - epp
 
   ai-gateway-api:
-    version: v0.0.8
+    version: v0.0.9
     source: image
-    image: ghcr.io/rainway-ai-gateway/ai-gateway-api:v0.0.8
+    image: ghcr.io/rainway-ai-gateway/ai-gateway-api:v0.0.9
 
   observability:
     version: v0.0.1

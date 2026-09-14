@@ -44,13 +44,15 @@ RUN set -ex; \
     && mkdir -p /home/work/conf-agent/log \
     && mkdir -p /home/work/log-reader/bin \
     && mkdir -p /home/work/log-reader/conf/mod_kafka \
-    && mkdir -p /home/work/log-reader/log
+    && mkdir -p /home/work/log-reader/log \
+    && mkdir -p /home/work/epp/log
 
 COPY --from=bfe /home/work/bfe/bin/bfe /home/work/bfe/bin/bfe
 COPY --from=bfe /home/work/bfe/conf /home/work/bfe/conf
 COPY --from=bfe /home/work/conf-agent/conf-agent /home/work/conf-agent/conf-agent
 COPY --from=bfe /home/work/log-reader/bin/log-reader /home/work/log-reader/bin/log-reader
 COPY --from=bfe /home/work/log-reader/conf/ /home/work/log-reader/conf/
+COPY --from=bfe /home/work/epp/epp /home/work/epp/epp
 
 COPY --from=api /home/work/api-server/api-server /home/work/api-server/api-server
 COPY --from=api /home/work/api-server/conf /home/work/api-server/conf
@@ -163,10 +165,17 @@ API_PID=""
 CONF_PID=""
 LR_PID=""
 BFE_PID=""
+EPP_PID=""
 
 cleanup() {
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] Received signal, shutting down..."
 
+    if [ -n "$BFE_PID" ]; then
+        kill -TERM "$BFE_PID" 2>/dev/null || true
+    fi
+    if [ -n "$EPP_PID" ]; then
+        kill -TERM "$EPP_PID" 2>/dev/null || true
+    fi
     if [ -n "$API_PID" ]; then
         kill -TERM "$API_PID" 2>/dev/null || true
     fi
@@ -175,9 +184,6 @@ cleanup() {
     fi
     if [ -n "$LR_PID" ]; then
         kill -TERM "$LR_PID" 2>/dev/null || true
-    fi
-    if [ -n "$BFE_PID" ]; then
-        kill -TERM "$BFE_PID" 2>/dev/null || true
     fi
 
     wait 2>/dev/null || true
@@ -245,15 +251,29 @@ nohup ./bfe -c ../conf/ -l ../log/ \
     </dev/null >../log/stdout.log 2>&1 &
 BFE_PID=$!
 
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting epp..."
+mkdir -p /home/work/epp/log
+cd /home/work/epp
+nohup ./epp \
+    -api-addr "${AI_GATEWAY_API_ADDR:-http://127.0.0.1:8183/inner-api/v1}" \
+    -api-token "${AI_GATEWAY_API_TOKEN:-c5QFb-MrlKktJbOid2M3}" \
+    -instance-id "${AI_GATEWAY_EPP_INSTANCE_ID:-$(hostname)}" \
+    -grpc-port "${AI_GATEWAY_EPP_GRPC_PORT:-9002}" \
+    -health-port "${AI_GATEWAY_EPP_HEALTH_PORT:-9003}" \
+    -metrics-port "${AI_GATEWAY_EPP_METRICS_PORT:-9090}" \
+    </dev/null >./log/stdout.log 2>&1 &
+EPP_PID=$!
+
 echo "[$(date +'%Y-%m-%d %H:%M:%S')] All processes started, waiting..."
 
 sleep 2
-for pid in $API_PID $CONF_PID $LR_PID $BFE_PID; do
+for pid in $BFE_PID $EPP_PID $API_PID $CONF_PID $LR_PID; do
     if ! kill -0 "$pid" 2>/dev/null; then
         echo "[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: process $pid exited, dumping logs..."
         for lf in /home/work/api-server/log/stdout.log \
                   /home/work/conf-agent/log/stdout.log \
                   /home/work/log-reader/log/stdout.log \
+                  /home/work/epp/log/stdout.log \
                   /home/work/bfe/log/stdout.log \
                   /home/work/bfe/log/*.log \
                   /home/work/bfe/log/*.wf; do
@@ -268,7 +288,7 @@ SCRIPT
 
 RUN chmod +x /home/work/entrypoint.sh
 
-EXPOSE 8080 8443 8421 8183 8284 8992
+EXPOSE 8080 8443 8421 8183 8284 8992 9002 9003 9090
 
 WORKDIR /home/work
 ENTRYPOINT ["/sbin/tini", "--"]

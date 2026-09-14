@@ -38,7 +38,7 @@ services:
       retries: 10
 
   ai-gateway:
-    image: ghcr.nju.edu.cn/rainway-ai-gateway/ai-gateway:v0.5.0
+    image: ghcr.nju.edu.cn/rainway-ai-gateway/ai-gateway:v0.6.0
     container_name: ai-gateway
     environment:
       TZ: Asia/Shanghai
@@ -49,6 +49,9 @@ services:
       - "8421:8421"
       - "8443:8443"
       - "8992:8992"
+      - "9002:9002"
+      - "9003:9003"
+      - "9090:9090"
 
     volumes:
       - ./conf/ai_gateway_api.toml:/home/work/api-server/conf/ai_gateway_api.toml
