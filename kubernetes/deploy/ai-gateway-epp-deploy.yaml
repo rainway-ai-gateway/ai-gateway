@@ -1,0 +1,141 @@
+# Copyright(c) 2026 The Rainway AI Gateway (壬远AI网关) Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: epp-tls
+  namespace: ai-gateway-system
+data:
+  epp-cert.pem: |
+    -----BEGIN CERTIFICATE-----
+    MIIBzzCCAXagAwIBAgIUIcuWojRggkwlzoQFa7kT5gbpZqwwCgYIKoZIzj0EAwIw
+    GTEXMBUGA1UEAwwOYWktZ2F0ZXdheS1lcHAwHhcNMjYwOTEzMDkxMDM1WhcNMzYw
+    OTEwMDkxMDM1WjAZMRcwFQYDVQQDDA5haS1nYXRld2F5LWVwcDBZMBMGByqGSM49
+    AgEGCCqGSM49AwEHA0IABPIlSNR9+XH2zxzSkP6v79pmG+t05tB3yAFOYBrGX2uv
+    7dCxO9ymln8H8SSZL1YpkTo6LVF+RsBtg7Bsj0FLEyCjgZswgZgwHQYDVR0OBBYE
+    FLq/dDrEp+mPFSJZhZn5PtwaNFFzMB8GA1UdIwQYMBaAFLq/dDrEp+mPFSJZhZn5
+    PtwaNFFzMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgKEMBMGA1UdJQQM
+    MAoGCCsGAQUFBwMBMCAGA1UdEQQZMBeHBKwTAd6HBH8AAAGCCWVwcC5sb2NhbDAK
+    BggqhkjOPQQDAgNHADBEAiAIN7btGFsCSUtpJv9+cdW8R88M7RaKYjdIjEt6eG7D
+    4QIgWKlEecFUxeKifqcHyD2bMk0bP1VEfPuCvwigXfINg2Q=
+    -----END CERTIFICATE-----
+  epp-key.pem: |
+    -----BEGIN EC PRIVATE KEY-----
+    MHcCAQEEIEyL8nkteI7cBpC1OHFs8vP4nlhcQ5hWDJ7+6UERzq8hoAoGCCqGSM49
+    AwEHoUQDQgAE8iVI1H35cfbPHNKQ/q/v2mYb63Tm0HfIAU5gGsZfa6/t0LE73KaW
+    fwfxJJkvVimROjotUX5GwG2DsGyPQUsTIA==
+    -----END EC PRIVATE KEY-----
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: epp
+  namespace: ai-gateway-system
+  labels:
+    app: ai-gateway-epp
+spec:
+  serviceName: ai-gateway-epp
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai-gateway-epp
+  template:
+    metadata:
+      labels:
+        app: ai-gateway-epp
+    spec:
+      securityContext:
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+      - name: epp
+        image: ghcr.io/rainway-ai-gateway/ai-gateway-epp:v0.0.1
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: TZ
+          value: Asia/Shanghai
+        - name: AI_GATEWAY_API_ADDR
+          value: http://ai-gateway-api.ai-gateway-system.svc.cluster.local:8183/inner-api/v1
+        - name: AI_GATEWAY_API_TOKEN
+          value: c5QFb-MrlKktJbOid2M3
+        - name: AI_GATEWAY_EPP_INSTANCE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: AI_GATEWAY_EPP_TLS_CERT
+          value: /home/work/epp/certs/epp-cert.pem
+        - name: AI_GATEWAY_EPP_TLS_KEY
+          value: /home/work/epp/certs/epp-key.pem
+        ports:
+        - name: grpc
+          containerPort: 9002
+        - name: health
+          containerPort: 9003
+        - name: metrics
+          containerPort: 9090
+        volumeMounts:
+        - name: epp-tls
+          mountPath: /home/work/epp/certs/epp-cert.pem
+          subPath: epp-cert.pem
+        - name: epp-tls
+          mountPath: /home/work/epp/certs/epp-key.pem
+          subPath: epp-key.pem
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          tcpSocket:
+            port: 9003
+          initialDelaySeconds: 10
+          periodSeconds: 20
+        readinessProbe:
+          tcpSocket:
+            port: 9003
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: epp-tls
+        configMap:
+          name: epp-tls
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-gateway-epp
+  namespace: ai-gateway-system
+  labels:
+    app: ai-gateway-epp
+spec:
+  clusterIP: None
+  selector:
+    app: ai-gateway-epp
+  ports:
+  - name: grpc
+    port: 9002
+    targetPort: 9002
+  - name: health
+    port: 9003
+    targetPort: 9003
+  - name: metrics
+    port: 9090
+    targetPort: 9090
