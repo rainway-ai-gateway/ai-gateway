@@ -9,6 +9,7 @@
 本部署在 `ai-gateway-system` 命名空间中演示了各关键组件的交互：
 
 - **数据面**（bfe + conf-agent + log-reader）：流量转发、接入控制与访问日志采集
+- **EPP**（ai-gateway-epp）：多集群调度，连接控制面 InnerAPI
 - **控制面**（ai-gateway-api）：策略/配置下发接口
 - **基础依赖**（MySQL、Redis、Kafka）：为控制面提供存储与消息服务
 - ~~**服务发现**（service-controller）：发现并同步后端服务~~ — 暂未启用，正在重构中
@@ -25,6 +26,7 @@
 | conf-agent | ai-gateway-api | `ai-gateway-api.ai-gateway-system.svc.cluster.local:8183` |
 | ai-gateway-api | MySQL | `mysql.ai-gateway-system.svc.cluster.local:3306` |
 | bfe（SessionCache） | Redis | `redis.ai-gateway-system.svc.cluster.local:6379` |
+| bfe（bal_gslb） | ai-gateway-epp | `epp-0.ai-gateway-epp.ai-gateway-system.svc.cluster.local:9002` |
 | log-reader | Kafka | `kafka.ai-gateway-system.svc.cluster.local:9092` |
 | Doris Routine Load | Kafka | `kafka.ai-gateway-system.svc.cluster.local:9092` |
 | Grafana | Doris FE | `doris-fe.default.svc.cluster.local:9030` |
@@ -39,6 +41,7 @@
 | `kustomization.yaml` | Kustomize 资源汇总与镜像覆盖 |
 | `bfe-configmap.yaml` | BFE 配置（bfe.conf、conf-agent.toml、log-reader 配置） |
 | `bfe-deploy.yaml` | BFE 数据面 Deployment（单容器内含 bfe + conf-agent + log-reader） |
+| `ai-gateway-epp-deploy.yaml` | EPP StatefulSet（2 副本） + Headless Service + TLS ConfigMap |
 | `ai-gateway-configmap.yaml` | AI Gateway API 配置（DB/Redis、鉴权） |
 | `ai-gateway-deploy.yaml` | AI Gateway API Deployment 与 Service |
 | `mysql-deploy.yaml` | MySQL（Deployment、Service、初始化 ConfigMap、初始化 Job） |
@@ -80,7 +83,7 @@ images:
 kubectl apply -k .
 ```
 
-部署：bfe（含 conf-agent + log-reader）、ai-gateway-api（含 Dashboard）、mysql、redis、kafka。service-controller 已在 `kustomization.yaml` 中注释（重构中暂未启用）。
+部署：bfe（含 conf-agent + log-reader）、ai-gateway-epp、ai-gateway-api（含 Dashboard）、mysql、redis、kafka。service-controller 已在 `kustomization.yaml` 中注释（重构中暂未启用）。
 
 ### 3. 部署测试服务（可选）
 

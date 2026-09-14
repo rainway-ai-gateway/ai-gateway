@@ -42,12 +42,15 @@ resources:
 images:
   - name: ghcr.io/bfenetworks/bfe
     newName: ghcr.nju.edu.cn/rainway-ai-gateway/bfe
-    newTag: v1.8.6
+    newTag: v1.8.7
 
   - name: ghcr.io/rainway-ai-gateway/ai-gateway-api
     newName: ghcr.nju.edu.cn/rainway-ai-gateway/ai-gateway-api
-    newTag: v0.0.8
+    newTag: v0.0.9
 
+  - name: ghcr.io/rainway-ai-gateway/ai-gateway-epp
+    newName: ghcr.nju.edu.cn/rainway-ai-gateway/ai-gateway-epp
+    newTag: v0.0.1
   # - name: ghcr.io/bfenetworks/service-controller
   #   newName: ghcr.nju.edu.cn/bfenetworks/service-controller
   #   newTag: v1.0.0
@@ -64,6 +67,3 @@ images:
     newName: ghcr.nju.edu.cn/cc14514/kafka
     newTag: "3.7.1"
 
-  - name: ghcr.io/rainway-ai-gateway/ai-gateway-epp
-    newName: ghcr.nju.edu.cn/rainway-ai-gateway/ai-gateway-epp
-    newTag: v0.0.1

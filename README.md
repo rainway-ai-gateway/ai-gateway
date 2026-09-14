@@ -19,6 +19,7 @@ AI Gateway consists of the following core components:
 | **Dashboard** | Admin console | Web UI for visual management (bundled in API image) | [rainway-ai-gatewa/ai-gateway-web](https://github.com/rainway-ai-gateway/ai-gateway-web) |
 | **BFE** | Data plane | Traffic forwarding and access control | [bfenetworks/bfe](https://github.com/bfenetworks/bfe) |
 | **Conf Agent** | Config agent | Fetches config and triggers BFE hot reload | [bfenetworks/conf-agent](https://github.com/bfenetworks/conf-agent) |
+| **EPP** | Endpoint Picker | Multi-cluster endpoint discovery and routing | [rainway-ai-gateway/ai-gateway-epp](https://github.com/rainway-ai-gateway/ai-gateway-epp) |
 | **Log Reader** | Log collector | Reads BFE access logs and sends to Kafka | [bfenetworks/log-reader](https://github.com/bfenetworks/log-reader) |
 
 ## Key Features
@@ -109,7 +110,7 @@ docker compose --profile observability up -d
 Grafana: `http://localhost:3000` (admin / admin)
 Doris FE Web: `http://localhost:8030`
 
-> The Log Reader is built into the AI Gateway image and runs as the 3rd process alongside BFE and Conf Agent. It reads `pb_access3.log` and sends to Kafka. Its config is at `conf/log-reader/` and mounted into the container. If Kafka is unavailable, Log Reader retries silently without affecting traffic routing.
+> The Log Reader is built into the AI Gateway image and runs as another process alongside BFE, EPP, and Conf Agent. It reads `pb_access3.log` and sends to Kafka. Its config is at `conf/log-reader/` and mounted into the container. If Kafka is unavailable, Log Reader retries silently without affecting traffic routing.
 
 ### Manual Deployment (External MySQL / Redis)
 
@@ -223,6 +224,8 @@ Update `VERSIONS.yaml` → rebuild → tag a new product release.
 |---|---|---|
 | 8080 | BFE | HTTP entry |
 | 8443 | BFE | HTTPS entry |
+| 9002 | EPP | ext-proc gRPC (TLS) |
+| 9003 | EPP | Health check |
 | 8421 | BFE | Monitor |
 | 8183 | API Server | API + Dashboard |
 | 8284 | API Server | Monitor |
@@ -242,4 +245,5 @@ AI Gateway is released under the [Apache License 2.0](LICENSE).
 - [AI Gateway API](https://github.com/rainway-ai-gateway/ai-gateway-api) — Control plane
 - [AI Gateway Web](https://github.com/rainway-ai-gateway/ai-gateway-web) — Dashboard frontend
 - [Conf Agent](https://github.com/bfenetworks/conf-agent) — Configuration agent
+- [AI Gateway EPP](https://github.com/rainway-ai-gateway/ai-gateway-epp) — Endpoint Picker (multi-cluster scheduling)
 - [Log Reader](https://github.com/bfenetworks/log-reader) — Access log collector
