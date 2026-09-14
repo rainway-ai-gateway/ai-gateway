@@ -548,5 +548,5 @@ INSERT IGNORE INTO `route_rules` (`type`, `owner`, `enabled`, `rules`) VALUES ('
 -- Pre-seed single EPP instance for Docker Compose (test mode).
 -- In K8s production, instances are registered via GUI.
 INSERT INTO `epp_instances` (`id`, `host`, `port`, `group_name`)
-VALUES ('epp-compose-0', '127.0.0.1', 9002, 'default')
+VALUES ('epp-0', '127.0.0.1', 9002, 'default')
 ON DUPLICATE KEY UPDATE `host` = VALUES(`host`), `port` = VALUES(`port`);

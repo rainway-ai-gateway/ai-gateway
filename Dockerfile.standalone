@@ -260,7 +260,7 @@ cd /home/work/epp
 nohup ./epp \
     -api-addr "${AI_GATEWAY_API_ADDR:-http://127.0.0.1:8183/inner-api/v1}" \
     -api-token "${AI_GATEWAY_API_TOKEN:-c5QFb-MrlKktJbOid2M3}" \
-    -instance-id "${AI_GATEWAY_EPP_INSTANCE_ID:-$(hostname)}" \
+    -instance-id "${AI_GATEWAY_EPP_INSTANCE_ID:-epp-0}" \
     -grpc-port "${AI_GATEWAY_EPP_GRPC_PORT:-9002}" \
     -health-port "${AI_GATEWAY_EPP_HEALTH_PORT:-9003}" \
     -metrics-port "${AI_GATEWAY_EPP_METRICS_PORT:-9090}" \
