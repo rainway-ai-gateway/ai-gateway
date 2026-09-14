@@ -110,7 +110,7 @@ DefaultAIClusterName = "BFE-AI_product.szyf"
 # default EPP instance pool name (singleton, /epp-pool)
 DefaultEPPInstancePoolName = "EPP.pool"
 # epp pool group size check: "production" (default, exactly 2 instances per group) / "test" (>=1)
-EPPValidationMode = "production"
+EPPValidationMode = "test"
 # EPP assignment reconciler period in seconds (default 30)
 EPPReconcileIntervalSeconds = 30
 
