@@ -333,6 +333,7 @@ data:
     [PbAccessLogConf]
     LogFile = /home/work/bfe/log/pb_access3.log
     Modules=mod_kafka
+    Modules=mod_log_mysql
     MaxSizePerBatch = 128
 
   mod_kafka.conf: |
@@ -361,6 +362,39 @@ data:
 
     # max retries
     MaxRetries = 3
+
+  mod_log_mysql.conf: |
+    [Basic]
+    OpenDebug = true
+
+    [mysql]
+    # MySQL address, e.g. 127.0.0.1:3306
+    Addr = mysql.ai-gateway-system.svc.cluster.local:3306
+
+    # dedicated minimal-privilege account (INSERT/UPDATE on target table only)
+    User = root
+    Password = bfe123456
+
+    # target database and table (table created by ai-gateway-api repo DDL, see db_ddl_report_mysql.sql)
+    DBName = bfe_report
+    Table = bfe_ai_request_log
+
+    [Writer]
+    # record buffer queue size (records)
+    QueueSize = 2000
+
+    # batch size (records)
+    BatchSize = 200
+
+    # batch flush interval in milliseconds
+    FlushIntervalMs = 2000
+
+    # max retries on write failure (backoff 200ms/400ms/800ms)
+    MaxRetries = 3
+
+    # connection pool
+    MaxOpenConns = 10
+    MaxIdleConns = 5
 
   kafka_config.data: |
     # kafka_config.data
@@ -413,6 +447,8 @@ data:
     FieldNames= ai_audio_input_tokens
     FieldNames= ai_audio_output_tokens
     FieldNames= ai_image_count
+    FieldNames= ai_image_input_tokens
+    FieldNames= ai_video_count
     FieldNames= ai_ttft_us
     FieldNames= ai_tpot_us
     FieldNames= ai_rate_limit_hits

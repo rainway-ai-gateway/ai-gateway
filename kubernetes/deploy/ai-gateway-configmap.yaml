@@ -48,7 +48,7 @@ data:
     # access log config
     [Loggers.access]
     LogName     = "access"
-    LogLevel    = "DEBUG"
+    LogLevel    = "INFO"
     RotateWhen  = "MIDNIGHT"
     BackupCount = 1
     Format      = "[%D %T] [%L] [%S] %M"
@@ -94,6 +94,16 @@ data:
     ConnMaxIdleTimeInMs = 500000
     ConnMaxLifetimeInMs = 5000000
 
+    # SQLite database config example
+    # see db_ddl_sqlite.sql for table creation
+    # [Databases.bfe_db]
+    # DBName               = "./data/ai_gateway.db"
+    # Driver               = "sqlite"
+    # MaxOpenConns         = 50
+    # MaxIdleConns         = 10
+    # ConnMaxIdleTimeInMs  = 500000
+    # ConnMaxLifetimeInMs  = 5000000
+
 
     # ---------------------------------
     # Dependence Config
@@ -126,16 +136,11 @@ data:
     # support AI product name
     AIRouteInnerProductName = "AI_product"
 
-    # default AI instance pool name
-    DefaultAIInstancePoolName = "BFE.aipool"
-
     # default AI cluster name
     DefaultAIClusterName = "BFE-AI_product.szyf"
 
     # default EPP instance pool name (singleton, /epp-pool)
     DefaultEPPInstancePoolName = "EPP.pool"
-    # epp pool group size check: "production" (default, exactly 2 instances per group) / "test" (>=1)
-    EPPValidationMode = "production"
     # EPP assignment reconciler period in seconds (default 30)
     EPPReconcileIntervalSeconds = 30
 
@@ -148,3 +153,27 @@ data:
     ReadTimeout = 5
     WriteTimeout = 5
     MaxIdle = 10
+
+    # ---------------------------------
+    # Report Query Config (optional)
+    # see design-docs/modifications/2026-09-15-report-query-api and
+    # db_ddl_report_mysql.sql. When [Report] is absent the report module is
+    # not assembled and /open-api/v1/report/* stay 404.
+    [Databases.report_db]
+    Driver              = "mysql"
+    DBName              = "bfe_report"
+    Addr                = "mysql.ai-gateway-system.svc.cluster.local:3306"
+    Net                 = "tcp"
+    User                = "root"
+    Passwd              = "bfe123456"
+    MaxOpenConns        = 20
+    MaxIdleConns        = 5
+
+    [Report]
+    Backend             = "mysql"
+    Datasource          = "report_db"
+    Database            = ""
+    EnableAggregateJob  = true
+    AggregateIntervalSec = 60
+    RetentionDays       = 7
+    EnablePartitionMgmt = true

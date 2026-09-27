@@ -74,6 +74,10 @@ spec:
           mountPath: /home/work/log-reader/conf/mod_kafka/kafka_config.data
           subPath: kafka_config.data
           readOnly: false
+        - name: log-reader-conf
+          mountPath: /home/work/log-reader/conf/mod_log_mysql/mod_log_mysql.conf
+          subPath: mod_log_mysql.conf
+          readOnly: false
         resources:
           requests:
             cpu: 200m

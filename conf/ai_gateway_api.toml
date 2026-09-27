@@ -101,16 +101,11 @@ Debug = false
 # support AI product name
 AIRouteInnerProductName = "AI_product"
 
-# default AI instance pool name
-DefaultAIInstancePoolName = "BFE.aipool"
-
 # default AI cluster name
 DefaultAIClusterName = "BFE-AI_product.szyf"
 
 # default EPP instance pool name (singleton, /epp-pool)
 DefaultEPPInstancePoolName = "EPP.pool"
-# epp pool group size check: "production" (default, exactly 2 instances per group) / "test" (>=1)
-EPPValidationMode = "test"
 # EPP assignment reconciler period in seconds (default 30)
 EPPReconcileIntervalSeconds = 30
 
@@ -123,3 +118,27 @@ ConnectTimeout = 10
 ReadTimeout = 5
 WriteTimeout = 5
 MaxIdle = 10
+
+# ---------------------------------
+# Report Query Config (optional)
+# see design-docs/modifications/2026-09-15-report-query-api and
+# db_ddl_report_mysql.sql. When [Report] is absent the report module is
+# not assembled and /open-api/v1/report/* stay 404.
+[Databases.report_db]
+Driver              = "mysql"
+DBName              = "bfe_report"
+Addr                = "mysql.ai-gateway-system:3306"
+Net                 = "tcp"
+User                = "root"
+Passwd              = "root123"
+MaxOpenConns        = 20
+MaxIdleConns        = 5
+
+[Report]
+Backend             = "mysql"
+Datasource          = "report_db"
+Database            = ""
+EnableAggregateJob  = true
+AggregateIntervalSec = 60
+RetentionDays       = 7
+EnablePartitionMgmt = true
