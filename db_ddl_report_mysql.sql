@@ -161,7 +161,7 @@ PARTITION BY RANGE (TO_DAYS(log_time)) (
 -- ---------------------------------
 -- 聚合表 bfe_ai_metrics_1m（37 维 + 24 指标）
 -- 维度集合与指标列与 Doris bfe_ai_metrics_1m 完全一致
---（见 ai-gateway-observability/doris/sqls/bfe_ai_metrics_1m.sql），MySQL 形态为
+-- （见 ai-gateway-observability/doris/sqls/bfe_ai_metrics_1m.sql），MySQL 形态为
 -- 普通 InnoDB 表：
 --   - 不设唯一键/主键：37 个维度列（含多个 VARCHAR(256)）无法构成 InnoDB 唯一键
 --     （3072 字节上限），且幂等性由聚合 JOB 的「DELETE 窗口 + INSERT SELECT 事务」

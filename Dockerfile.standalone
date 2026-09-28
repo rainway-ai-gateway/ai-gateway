@@ -225,18 +225,24 @@ fi
 REPORT_DB="bfe_report"
 echo "[$(date +'%Y-%m-%d %H:%M:%S')] Checking report database $DB_HOST:$DB_PORT/$REPORT_DB..."
 
+# Guard requires BOTH report tables: a previous partial run (DDL aborted
+# midway) must be repaired, and the DDL is idempotent (CREATE TABLE IF NOT
+# EXISTS), so re-running is safe.
 REPORT_TABLE_COUNT=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" -sN \
-    -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$REPORT_DB' AND table_name='bfe_ai_request_log';" 2>/dev/null || echo "0")
+    -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$REPORT_DB' AND table_name IN ('bfe_ai_request_log','bfe_ai_metrics_1m');" 2>/dev/null || echo "0")
 
-if [ "$REPORT_TABLE_COUNT" = "0" ]; then
-    echo "[$(date +'%Y-%m-%d %H:%M:%S')] Report database not initialized, running db_ddl_report_mysql.sql..."
+if [ "$REPORT_TABLE_COUNT" != "2" ]; then
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] Report database not fully initialized ($REPORT_TABLE_COUNT of 2 tables), running db_ddl_report_mysql.sql..."
     # ${INIT_DATE} must be replaced with (today + 3 days) so the p_init
     # partition covers writes until the partition-mgmt JOB takes over.
     # NOTE: this image is BusyBox-based, so neither GNU "date -d '+3 days'"
     # nor BSD "date -v+3d" works; only "date -d @<epoch>" is supported.
     REPORT_INIT_DATE=$(date -d "@$(( $(date +%s) + 3 * 86400 ))" +%Y-%m-%d 2>/dev/null || echo "2099-01-01")
     sed "s/\${INIT_DATE}/$REPORT_INIT_DATE/g" /home/work/db_ddl_report_mysql.sql > /tmp/db_ddl_report_rendered.sql
-    mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" < /tmp/db_ddl_report_rendered.sql
+    if ! mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" < /tmp/db_ddl_report_rendered.sql; then
+        echo "[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: report database initialization failed, see mysql errors above"
+        exit 1
+    fi
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] Report database initialization complete (INIT_DATE=$REPORT_INIT_DATE)"
 else
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] Report database already initialized, skipping"

@@ -848,7 +848,7 @@ data:
       -- ---------------------------------
       -- 聚合表 bfe_ai_metrics_1m（37 维 + 24 指标）
       -- 维度集合与指标列与 Doris bfe_ai_metrics_1m 完全一致
-      --（见 ai-gateway-observability/doris/sqls/bfe_ai_metrics_1m.sql），MySQL 形态为
+      -- （见 ai-gateway-observability/doris/sqls/bfe_ai_metrics_1m.sql），MySQL 形态为
       -- 普通 InnoDB 表：
       --   - 不设唯一键/主键：37 个维度列（含多个 VARCHAR(256)）无法构成 InnoDB 唯一键
       --     （3072 字节上限），且幂等性由聚合 JOB 的「DELETE 窗口 + INSERT SELECT 事务」
@@ -989,15 +989,21 @@ spec:
               else
                   echo "Control plane database already initialized, skipping."
               fi
-              # Report database initialization (separate from control plane)
+              # Report database initialization (separate from control plane).
+              # Guard requires BOTH report tables: a previous partial run (DDL
+              # aborted midway) must be repaired, and the DDL is idempotent
+              # (CREATE TABLE IF NOT EXISTS), so re-running is safe.
               REPORT_TABLE_COUNT=$(mysql --protocol=tcp --connect-timeout=10 -h mysql.ai-gateway-system.svc.cluster.local -uroot --password="$MYSQL_ROOT_PASSWORD" -sN \
-                  -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='bfe_report' AND table_name='bfe_ai_request_log';" 2>/dev/null || echo "0")
-              if [ "$REPORT_TABLE_COUNT" -eq 0 ]; then
-                  echo "Starting report database initialization..."
+                  -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='bfe_report' AND table_name IN ('bfe_ai_request_log','bfe_ai_metrics_1m');" 2>/dev/null || echo "0")
+              if [ "$REPORT_TABLE_COUNT" -ne 2 ]; then
+                  echo "Starting report database initialization (found $REPORT_TABLE_COUNT of 2 tables)..."
                   # Substitute ${INIT_DATE} with today + 3 days (portable epoch math)
                   INIT_DATE=$(date -d "@$(( $(date +%s) + 3 * 86400 ))" +%Y-%m-%d 2>/dev/null || date -v+3d +%Y-%m-%d 2>/dev/null || echo "2099-01-01")
-                  sed "s/\${INIT_DATE}/$INIT_DATE/g" /init-scripts/db_ddl_report_mysql.sql | \
-                      mysql --protocol=tcp --connect-timeout=10 -h mysql.ai-gateway-system.svc.cluster.local -uroot --password="$MYSQL_ROOT_PASSWORD"
+                  if ! sed "s/\${INIT_DATE}/$INIT_DATE/g" /init-scripts/db_ddl_report_mysql.sql | \
+                      mysql --protocol=tcp --connect-timeout=10 -h mysql.ai-gateway-system.svc.cluster.local -uroot --password="$MYSQL_ROOT_PASSWORD"; then
+                      echo "ERROR: report database initialization failed, see mysql errors above" >&2
+                      exit 1
+                  fi
                   echo "Report database initialization completed!"
               else
                   echo "Report database already initialized, skipping."
