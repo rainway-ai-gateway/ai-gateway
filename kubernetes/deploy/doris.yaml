@@ -164,8 +164,11 @@ spec:
           - sh
           - -c
           - |
-            echo "Waiting for Doris FE..."
-            until mysqladmin ping -h doris-fe.default.svc.cluster.local -P 9030 -uroot --silent; do
+            echo "Waiting for Doris FE to be queryable..."
+            # mysqladmin ping succeeds while FE is still booting; only a real
+            # query proves the query port is ready to serve DDL statements.
+            until mysql -h doris-fe.default.svc.cluster.local -P 9030 -uroot -e "SELECT 1;" >/dev/null 2>&1; do
+              echo "FE not ready yet, sleeping 5s..."
               sleep 5
             done
             echo "FE ready"
@@ -178,13 +181,26 @@ spec:
           - |
             set -eu
             echo "Checking if Doris is already initialized..."
-            DB_COUNT=$(mysql -h doris-fe.default.svc.cluster.local -P 9030 -uroot -sN \
-                -e "SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='bfe_observability';" 2>/dev/null || echo "0")
-            if [ "$DB_COUNT" -gt 0 ]; then
-                echo "Database already initialized, skipping."
+            # Guard requires BOTH tables: a previous partial run may have
+            # created the database (or one table) and died before finishing,
+            # and the SQL files below are NOT idempotent.
+            TABLE_COUNT=$(mysql -h doris-fe.default.svc.cluster.local -P 9030 -uroot -sN \
+                -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='bfe_observability' AND table_name IN ('bfe_ai_request_log','bfe_ai_metrics_1m');" 2>/dev/null || echo "0")
+            if [ "$TABLE_COUNT" -eq 2 ]; then
+                echo "Doris already initialized, skipping."
                 exit 0
             fi
-            echo "Starting Doris initialization..."
+            echo "Starting Doris initialization (found $TABLE_COUNT of 2 tables)..."
+            # Clean partial objects from a previous aborted run so the
+            # non-idempotent SQL files can re-run from scratch.
+            mysql -h doris-fe-0.doris-fe.default.svc.cluster.local -P 9030 -uroot \
+                -e "DROP ROUTINE LOAD FOR bfe_observability.bfe_ai_log_load" 2>/dev/null || true
+            mysql -h doris-fe-0.doris-fe.default.svc.cluster.local -P 9030 -uroot \
+                -e 'DROP JOB IF EXISTS WHERE jobName="bfe_ai_metrics_1m_job"' 2>/dev/null || true
+            mysql -h doris-fe-0.doris-fe.default.svc.cluster.local -P 9030 -uroot \
+                -e "DROP TABLE IF EXISTS bfe_observability.bfe_ai_request_log" 2>/dev/null || true
+            mysql -h doris-fe-0.doris-fe.default.svc.cluster.local -P 9030 -uroot \
+                -e "DROP TABLE IF EXISTS bfe_observability.bfe_ai_metrics_1m" 2>/dev/null || true
             is_first=true
             for f in /sql/*.sql; do
               echo "  Executing $f..."
