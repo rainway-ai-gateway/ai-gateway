@@ -531,7 +531,7 @@ CREATE TABLE `operation_logs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI 网关配置操作日志表';
 
 -- insert default user
-insert into users (id, name, password, scopes, created_at) values(1, 'admin', 'admin', 'System', now());
+insert into users (id, name, password, scopes, created_at) values(1, 'admin', '$2a$10$w2oNyh4MO7SB.NHLPSq6kOj1GMiX1fApPYcWJmL8toZXGCQs3AJ0K', 'System', now());
 insert into users (id, name, type, password, ticket, ticket_created_at, scopes, created_at) values (2, 'demo', 1, '', 'eT5QWkLhQmp6lO4NWxAc', now(), 'Product', now());
 insert into users (id, name, type, password, ticket, ticket_created_at, scopes, created_at) values (3, 'conf-agent', 1, '', 'c5QFb-MrlKktJbOid2M3', now(), 'System', now());
 insert into products (id, name, `description`, mail_list, contact_person, created_at) values (1, 'BFE', 'Build-in Product, User by System Manager', 'bfe@cncf.com', 'bfe', now());
