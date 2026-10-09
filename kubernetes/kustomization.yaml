@@ -46,7 +46,7 @@ images:
 
   - name: ghcr.io/rainway-ai-gateway/ai-gateway-api
     newName: ghcr.nju.edu.cn/rainway-ai-gateway/ai-gateway-api
-    newTag: v0.0.10
+    newTag: v0.0.10.1
 
   - name: ghcr.io/rainway-ai-gateway/ai-gateway-epp
     newName: ghcr.nju.edu.cn/rainway-ai-gateway/ai-gateway-epp
