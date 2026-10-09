@@ -13,10 +13,12 @@
 # limitations under the License.
 #
 ARG BFE_IMAGE=ghcr.io/bfenetworks/bfe:v1.8.2
-ARG API_IMAGE=ghcr.io/yf-networks/ai-gateway-api:v0.0.2
+ARG API_IMAGE=ghcr.io/rainway-ai-gateway/ai-gateway-api:v0.0.2
+ARG EPP_IMAGE=ghcr.io/rainway-ai-gateway/ai-gateway-epp:v0.0.1
 
 FROM ${BFE_IMAGE} AS bfe
 FROM ${API_IMAGE} AS api
+FROM ${EPP_IMAGE} AS epp
 
 FROM alpine:3.19
 
@@ -28,7 +30,7 @@ RUN set -ex; \
         echo "${ALPINE_MIRROR}/v3.19/main" > /etc/apk/repositories; \
         echo "${ALPINE_MIRROR}/v3.19/community" >> /etc/apk/repositories; \
     fi; \
-    apk add --no-cache ca-certificates tini mysql-client mariadb-connector-c; \
+    apk add --no-cache ca-certificates tini mysql-client mariadb-connector-c tzdata; \
     if [ "${VARIANT}" = "debug" ]; then \
         apk add --no-cache bash curl wget vim; \
     fi
@@ -44,18 +46,22 @@ RUN set -ex; \
     && mkdir -p /home/work/conf-agent/log \
     && mkdir -p /home/work/log-reader/bin \
     && mkdir -p /home/work/log-reader/conf/mod_kafka \
-    && mkdir -p /home/work/log-reader/log
+    && mkdir -p /home/work/log-reader/log \
+    && mkdir -p /home/work/epp/log \
+    && mkdir -p /home/work/epp/certs
 
 COPY --from=bfe /home/work/bfe/bin/bfe /home/work/bfe/bin/bfe
 COPY --from=bfe /home/work/bfe/conf /home/work/bfe/conf
 COPY --from=bfe /home/work/conf-agent/conf-agent /home/work/conf-agent/conf-agent
 COPY --from=bfe /home/work/log-reader/bin/log-reader /home/work/log-reader/bin/log-reader
 COPY --from=bfe /home/work/log-reader/conf/ /home/work/log-reader/conf/
+COPY --from=epp /home/work/epp/epp /home/work/epp/epp
 
 COPY --from=api /home/work/api-server/api-server /home/work/api-server/api-server
 COPY --from=api /home/work/api-server/conf /home/work/api-server/conf
 COPY --from=api /home/work/api-server/static /home/work/api-server/static
 COPY api_db_ddl.sql /home/work/db_ddl.sql
+COPY db_ddl_report_mysql.sql /home/work/db_ddl_report_mysql.sql
 
 RUN set -ex; \
     if [ -f /home/work/bfe/conf/server_data_conf/name_conf.data ] && [ ! -L /home/work/bfe/conf/server_data_conf/name_conf.data ]; then \
@@ -78,13 +84,14 @@ BFECluster              = "BFE-AI_product.szyf"
 BFEConfDir              = "/home/work/bfe/conf"
 BFEMonitorPort          = 8421
 BFEReloadTimeoutMs      = 1500
+VersionKeepCount        = 2
 
 ReloadIntervalMs        = 5000
 
 ConfServer              = "http://127.0.0.1:8183"
 # Token 获取参考 https://github.com/bfenetworks/dashboard/blob/develop/docs/zh-cn/user-guide/system-view/user-management.md#token%E7%AE%A1%E7%90%86
 ConfTaskHeaders         = {"Authorization" = "Token c5QFb-MrlKktJbOid2M3"}
-ConfTaskTimeoutMs       = 1500
+ConfTaskTimeoutMs       = 5000
 
 ExtraFileServer         = "http://127.0.0.1:8183/inner-api/v1/configs/extra_files/"
 # Token 获取参考 https://github.com/bfenetworks/dashboard/blob/develop/docs/zh-cn/user-guide/system-view/user-management.md#token%E7%AE%A1%E7%90%86
@@ -162,10 +169,17 @@ API_PID=""
 CONF_PID=""
 LR_PID=""
 BFE_PID=""
+EPP_PID=""
 
 cleanup() {
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] Received signal, shutting down..."
 
+    if [ -n "$BFE_PID" ]; then
+        kill -TERM "$BFE_PID" 2>/dev/null || true
+    fi
+    if [ -n "$EPP_PID" ]; then
+        kill -TERM "$EPP_PID" 2>/dev/null || true
+    fi
     if [ -n "$API_PID" ]; then
         kill -TERM "$API_PID" 2>/dev/null || true
     fi
@@ -174,9 +188,6 @@ cleanup() {
     fi
     if [ -n "$LR_PID" ]; then
         kill -TERM "$LR_PID" 2>/dev/null || true
-    fi
-    if [ -n "$BFE_PID" ]; then
-        kill -TERM "$BFE_PID" 2>/dev/null || true
     fi
 
     wait 2>/dev/null || true
@@ -208,6 +219,33 @@ if [ "$TABLE_COUNT" = "0" ]; then
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] Database initialization complete"
 else
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] Database already initialized, skipping"
+fi
+
+# Report database initialization (separate from control plane)
+REPORT_DB="bfe_report"
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Checking report database $DB_HOST:$DB_PORT/$REPORT_DB..."
+
+# Guard requires BOTH report tables: a previous partial run (DDL aborted
+# midway) must be repaired, and the DDL is idempotent (CREATE TABLE IF NOT
+# EXISTS), so re-running is safe.
+REPORT_TABLE_COUNT=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" -sN \
+    -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$REPORT_DB' AND table_name IN ('bfe_ai_request_log','bfe_ai_metrics_1m');" 2>/dev/null || echo "0")
+
+if [ "$REPORT_TABLE_COUNT" != "2" ]; then
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] Report database not fully initialized ($REPORT_TABLE_COUNT of 2 tables), running db_ddl_report_mysql.sql..."
+    # ${INIT_DATE} must be replaced with (today + 3 days) so the p_init
+    # partition covers writes until the partition-mgmt JOB takes over.
+    # NOTE: this image is BusyBox-based, so neither GNU "date -d '+3 days'"
+    # nor BSD "date -v+3d" works; only "date -d @<epoch>" is supported.
+    REPORT_INIT_DATE=$(date -d "@$(( $(date +%s) + 3 * 86400 ))" +%Y-%m-%d 2>/dev/null || echo "2099-01-01")
+    sed "s/\${INIT_DATE}/$REPORT_INIT_DATE/g" /home/work/db_ddl_report_mysql.sql > /tmp/db_ddl_report_rendered.sql
+    if ! mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" < /tmp/db_ddl_report_rendered.sql; then
+        echo "[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: report database initialization failed, see mysql errors above"
+        exit 1
+    fi
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] Report database initialization complete (INIT_DATE=$REPORT_INIT_DATE)"
+else
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] Report database already initialized, skipping"
 fi
 
 if [ ! -f /home/work/bfe/conf/name_conf.data ]; then
@@ -244,15 +282,29 @@ nohup ./bfe -c ../conf/ -l ../log/ \
     </dev/null >../log/stdout.log 2>&1 &
 BFE_PID=$!
 
+echo "[$(date +'%Y-%m-%d %H:%M:%S')] Starting epp..."
+mkdir -p /home/work/epp/log
+cd /home/work/epp
+nohup ./epp \
+    -api-addr "${AI_GATEWAY_API_ADDR:-http://127.0.0.1:8183/inner-api/v1}" \
+    -api-token "${AI_GATEWAY_API_TOKEN:-c5QFb-MrlKktJbOid2M3}" \
+    -instance-id "${AI_GATEWAY_EPP_INSTANCE_ID:-epp-0}" \
+    -grpc-port "${AI_GATEWAY_EPP_GRPC_PORT:-9002}" \
+    -health-port "${AI_GATEWAY_EPP_HEALTH_PORT:-9003}" \
+    -metrics-port "${AI_GATEWAY_EPP_METRICS_PORT:-9090}" \
+    </dev/null >./log/stdout.log 2>&1 &
+EPP_PID=$!
+
 echo "[$(date +'%Y-%m-%d %H:%M:%S')] All processes started, waiting..."
 
 sleep 2
-for pid in $API_PID $CONF_PID $LR_PID $BFE_PID; do
+for pid in $BFE_PID $EPP_PID $API_PID $CONF_PID $LR_PID; do
     if ! kill -0 "$pid" 2>/dev/null; then
         echo "[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: process $pid exited, dumping logs..."
         for lf in /home/work/api-server/log/stdout.log \
                   /home/work/conf-agent/log/stdout.log \
                   /home/work/log-reader/log/stdout.log \
+                  /home/work/epp/log/stdout.log \
                   /home/work/bfe/log/stdout.log \
                   /home/work/bfe/log/*.log \
                   /home/work/bfe/log/*.wf; do
@@ -267,7 +319,7 @@ SCRIPT
 
 RUN chmod +x /home/work/entrypoint.sh
 
-EXPOSE 8080 8443 8421 8183 8284 8992
+EXPOSE 8080 8443 8421 8183 8284 8992 9002 9003 9090
 
 WORKDIR /home/work
 ENTRYPOINT ["/sbin/tini", "--"]

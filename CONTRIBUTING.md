@@ -2,7 +2,7 @@
 
 You are welcome to contribute to the AI Gateway ecosystem.
 To contribute, you need to agree to the
-[Contributor License Agreement](https://cla-assistant.io/yf-networks/ai-gateway).
+[Contributor License Agreement](https://cla-assistant.io/rainway-ai-gateway/ai-gateway).
 
 We sincerely appreciate your contribution. This document explains the suggested workflow and code review expectations.
 
@@ -43,7 +43,7 @@ Typical steps:
   Pull from the official repo often so you can resolve conflicts early.
 
   ```bash
-  git remote add upstream https://github.com/yf-networks/ai-gateway
+  git remote add upstream https://github.com/rainway-ai-gateway/ai-gateway
   git pull upstream main
   ```
 

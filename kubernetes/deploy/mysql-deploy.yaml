@@ -219,11 +219,38 @@ data:
         `failure_status` tinyint(1) NOT NULL DEFAULT '0',
         `max_conns_per_host` int(11) NOT NULL DEFAULT '0',
         `llm_config` text,
+        `balance_mode` varchar(16) NOT NULL DEFAULT 'WRR' COMMENT '均衡模式：WRR/EPP',
+        `epp_config` text COMMENT 'EPP调度配置（简化用户形态JSON）',
         `created_at` datetime NOT NULL,
         `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (`id`),
         UNIQUE KEY `name_index` (`name`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+      -- create epp_instances (EPP实例池表)
+      DROP TABLE IF EXISTS `epp_instances`;
+      CREATE TABLE `epp_instances` (
+        `id` varchar(128) NOT NULL COMMENT '实例id，池内全局唯一',
+        `host` varchar(255) NOT NULL COMMENT '实例主机名或IP（IPv6字面量不带括号）',
+        `port` int(11) NOT NULL COMMENT '实例端口',
+        `group_name` varchar(128) NOT NULL COMMENT '实例组名',
+        `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `uk_host_port` (`host`, `port`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='EPP实例池表';
+
+      -- create epp_assignments (EPP分配表，只存主)
+      DROP TABLE IF EXISTS `epp_assignments`;
+      CREATE TABLE `epp_assignments` (
+        `cluster` varchar(255) NOT NULL COMMENT 'cluster名',
+        `group_name` varchar(128) NOT NULL COMMENT '实例组名',
+        `primary_instance_id` varchar(128) NOT NULL COMMENT '主实例id',
+        `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        PRIMARY KEY (`cluster`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='EPP分配表';
 
 
       -- create lb_matrices
@@ -365,7 +392,8 @@ data:
         `version` varchar(255) NOT NULL,
         `created_at` datetime NOT NULL,
         `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        PRIMARY KEY (`id`)
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `uk_name_version` (`name`, `version`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -425,6 +453,14 @@ data:
         INDEX idx_route_rules_id (route_rules_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 comment = "api keys";
 
+      -- create api_key_id_seq
+      DROP TABLE IF EXISTS `api_key_id_seq`;
+      CREATE TABLE `api_key_id_seq` (
+        `product_name` varchar(255) NOT NULL COMMENT '产品线名称',
+        `next_seq` bigint NOT NULL DEFAULT '1' COMMENT '下一个可用序号',
+        PRIMARY KEY (`product_name`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='API-Key ID 序号分配表';
+
       -- create api_key_tokens
       DROP TABLE IF EXISTS `api_key_tokens`;
       CREATE TABLE api_key_tokens (
@@ -434,7 +470,7 @@ data:
         `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP  comment "更新时间",
         PRIMARY KEY (`id`),
         UNIQUE KEY `idx_key` (`api_key`)
-      )ENGINE=InnoDB DEFAULT CHARSET=utf8 comment = "api-key存储表"; 
+      )ENGINE=InnoDB DEFAULT CHARSET=utf8 comment = "api-key存储表";
 
       -- create ai_route_rules
       DROP TABLE IF EXISTS `ai_route_rules`;
@@ -485,6 +521,7 @@ data:
         `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
         `entity_id` VARCHAR(64) NOT NULL COMMENT 'Entity唯一标识（业务ID）',
         `name` VARCHAR(128) NOT NULL COMMENT 'Entity名称',
+        `description` VARCHAR(255) NOT NULL DEFAULT '' COMMENT 'Entity描述',
         `type` VARCHAR(32) NOT NULL COMMENT 'Entity类型（关联entity_types.type_name）',
         `parent_id` VARCHAR(64) DEFAULT NULL COMMENT '父Entity ID',
         `allow_models` TEXT COMMENT '允许访问的模型白名单（JSON数组）',
@@ -503,33 +540,69 @@ data:
         INDEX `idx_route_rules_id` (`route_rules_id`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Entity实体表';
 
+      -- create entity_id_seq (Entity ID序号分配表)
+      DROP TABLE IF EXISTS `entity_id_seq`;
+      CREATE TABLE `entity_id_seq` (
+        `name` varchar(32) NOT NULL COMMENT '序号键（固定为entity）',
+        `next_seq` bigint NOT NULL DEFAULT '1' COMMENT '下一个可用序号',
+        PRIMARY KEY (`name`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Entity ID序号分配表';
+
       -- create quota_plans (配额计划表)
       DROP TABLE IF EXISTS `quota_plans`;
       CREATE TABLE `quota_plans` (
         `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
         `unlimited` TINYINT(1) DEFAULT 1 COMMENT '是否无限配额：0-有限，1-无限',
         `pass_when_no_enough_quota` TINYINT(1) DEFAULT 0 COMMENT '配额不足时是否放行：0-拒绝，1-放行',
-        `quota` BIGINT DEFAULT 0 COMMENT '配额总量',
-        `unit` VARCHAR(32) DEFAULT 'total_token' COMMENT '配额单位',
+        `quota` DECIMAL(18,8) DEFAULT 0 COMMENT '配额总量',
+        `unit` VARCHAR(32) DEFAULT 'total_token' COMMENT '配额单位：total_token/RMB',
         `reset_period` VARCHAR(16) DEFAULT 'never' COMMENT '配额重置周期：never/weekly/monthly，重置均基于日历周期（如自然周/自然月）',
+        `last_reset_at` DATETIME DEFAULT NULL COMMENT '上次重置时间',
         `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
         `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
         INDEX `idx_unlimited` (`unlimited`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='配额计划表';
 
-      -- create quota_balances (配额余额表)
-      DROP TABLE IF EXISTS `quota_balances`;
-      CREATE TABLE `quota_balances` (
+      -- create model_prices (模型定价表)
+      DROP TABLE IF EXISTS `model_prices`;
+      CREATE TABLE `model_prices` (
         `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
-        `quota_plan_id` BIGINT NOT NULL COMMENT '配额计划ID',
-        `used` BIGINT DEFAULT 0 COMMENT '已使用量',
-        `remaining` BIGINT DEFAULT 0 COMMENT '剩余量',
-        `last_reset_at` DATETIME DEFAULT NULL COMMENT '上次重置时间',
+        `provider` VARCHAR(255) NOT NULL COMMENT 'Provider / Cluster 标识',
+        `model` VARCHAR(255) NOT NULL COMMENT '模型名',
+        `base_model` VARCHAR(255) NOT NULL COMMENT '归一化基础模型名',
+        `mode` VARCHAR(50) NOT NULL COMMENT '模型模式',
+        `capabilities` JSON COMMENT '能力列表',
+        `supported_parameters` JSON COMMENT '支持的请求参数列表',
+        `limits` JSON COMMENT '限制对象',
+        `prices` JSON NOT NULL COMMENT '价格对象',
+        `tier_prices` JSON COMMENT '分时段价格对象',
+        `price_currency` VARCHAR(10) DEFAULT 'RMB' COMMENT '币种',
+        `metadata` JSON COMMENT '元数据',
         `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
         `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-        UNIQUE KEY `uk_quota_plan_id` (`quota_plan_id`),
-        INDEX `idx_remaining` (`remaining`)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='配额余额表';
+        UNIQUE KEY `uk_provider_model_mode` (`provider`, `model`, `mode`),
+        INDEX `idx_provider` (`provider`),
+        INDEX `idx_mode` (`mode`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='模型定价表';
+
+      -- create providers (模型提供商表)
+      DROP TABLE IF EXISTS `providers`;
+      CREATE TABLE `providers` (
+        `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+        `name` VARCHAR(255) NOT NULL COMMENT 'Provider 标识',
+        `description` VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '描述',
+        `model_endpoint` JSON COMMENT '模型发现端点配置',
+        `models` JSON COMMENT '支持的模型列表',
+        `api_keys` JSON COMMENT 'API key 列表',
+        `instance_pool` JSON NOT NULL COMMENT '实例池列表',
+        `model_protocols` JSON NOT NULL COMMENT '支持的模型协议列表',
+        `protocol_paths` JSON COMMENT '按协议的上游路径前缀（protocol -> base path）',
+        `time_zone` VARCHAR(255) NOT NULL DEFAULT 'Asia/Shanghai' COMMENT '计算时段所使用的时区',
+        `tiers` JSON COMMENT '时段 tier 定义列表',
+        `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        UNIQUE KEY `uk_name` (`name`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='模型提供商表';
 
       -- create rate_limit_policies (限流策略表)
       DROP TABLE IF EXISTS `rate_limit_policies`;
@@ -558,6 +631,38 @@ data:
         INDEX `idx_enabled` (`enabled`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='路由规则表';
 
+      -- create operation_logs
+      DROP TABLE IF EXISTS `operation_logs`;
+      CREATE TABLE `operation_logs` (
+        `id` bigint(20) NOT NULL AUTO_INCREMENT,
+        `log_id` varchar(64) NOT NULL COMMENT '请求唯一标识，与 access log 中的 LogID 一致，用于关联与去重',
+        `operator_type` tinyint(4) NOT NULL DEFAULT '0' COMMENT '操作者类型：0=user, 1=token',
+        `operator_id` bigint(20) NOT NULL DEFAULT '0' COMMENT '操作者在对应表中的主键 ID',
+        `operator_name` varchar(255) NOT NULL DEFAULT '' COMMENT '操作者名称（user_name 或 token_name）',
+        `action` varchar(32) NOT NULL COMMENT '操作动作：create/update/delete/reset/...',
+        `resource_type` varchar(64) NOT NULL COMMENT '资源类型：entity/api_key/provider/...',
+        `resource_id` varchar(255) NOT NULL DEFAULT '' COMMENT '被操作资源业务 ID',
+        `resource_name` varchar(512) NOT NULL DEFAULT '' COMMENT '被操作资源名称，便于展示',
+        `resource_parent_id` varchar(255) NOT NULL DEFAULT '' COMMENT '资源父级业务 ID（如 entity 层级中的父节点）',
+        `status` tinyint(4) NOT NULL DEFAULT '1' COMMENT '操作结果：1=success, 2=failed',
+        `error_msg` varchar(1024) NOT NULL DEFAULT '' COMMENT '失败时的简要错误信息',
+        `change_summary` mediumtext COMMENT '变更摘要 JSON，记录变更前后关键字段（脱敏后）',
+        `request_path` varchar(512) NOT NULL DEFAULT '' COMMENT '请求路径',
+        `request_method` varchar(16) NOT NULL DEFAULT '' COMMENT '请求方法',
+        `client_ip` varchar(64) NOT NULL DEFAULT '' COMMENT '客户端 IP',
+        `user_agent` varchar(512) NOT NULL DEFAULT '' COMMENT 'User-Agent',
+        `created_at` datetime NOT NULL COMMENT '操作发生时间',
+        PRIMARY KEY (`id`),
+        KEY `idx_operator` (`operator_type`, `operator_id`),
+        KEY `idx_resource` (`resource_type`, `resource_id`),
+        KEY `idx_action` (`action`),
+        KEY `idx_created_at` (`created_at`),
+        KEY `idx_log_id` (`log_id`),
+        KEY `idx_resource_parent` (`resource_parent_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI 网关配置操作日志表';
+
+
+
       -- insert default user
       insert into users (id, name, password, scopes, created_at) values(1, 'admin', 'admin', 'System', now());
       insert into users (id, name, type, password, ticket, ticket_created_at, scopes, created_at) values (2, 'demo', 1, '', 'eT5QWkLhQmp6lO4NWxAc', now(), 'Product', now());
@@ -567,13 +672,265 @@ data:
       insert into user_products (user_id, product_id, created_at, updated_at) values (2, 2, now(), now());
 
 
-      -- pools init 
+      -- pools init
       INSERT INTO `pools` ( `id`, `name`, `product_id`, `ready`, `instance_detail`, `type`, `tag`, `role`, `created_at`, `updated_at`) VALUES ( 1, 'BFE.aipool', 1, 1, '[{"Name":"127.0.0.1","Addr":"127.0.0.1","Port":8080,"Ports":{"Default":8080},"tags":{"key":"value"},"Weight":1,"Disable":false}]', 1, 1, 'COMMON', NOW(), NOW());
       -- bfe_clusters init
       INSERT INTO `bfe_clusters` ( `id`, `name`, `pool_name`, `capacity`, `enabled`, `gtc_enabled`, `gtc_manual_enabled`, `exempt_traffic_check`, `created_at`, `updated_at`) VALUES ( 1, 'BFE-AI_product.szyf', 'BFE.aipool', 0, 1, 1, 1, 0, NOW(), NOW());
 
-      -- route rules global init
+      -- 初始化默认 global 路由表
       INSERT IGNORE INTO `route_rules` (`type`, `owner`, `enabled`, `rules`) VALUES ('global', 'global', 0, '[]');
+
+      -- Pre-seed single EPP instance for Docker Compose (test mode).
+      INSERT INTO `epp_instances` (`id`, `host`, `port`, `group_name`) VALUES ('epp-0', 'epp-0.ai-gateway-epp.ai-gateway-system.svc.cluster.local', 9002, 'default');
+      INSERT INTO `epp_instances` (`id`, `host`, `port`, `group_name`) VALUES ('epp-1', 'epp-1.ai-gateway-epp.ai-gateway-system.svc.cluster.local', 9002, 'default');
+
+  db_ddl_report_mysql.sql: |
+      -- ============================================================================
+      -- Rainway AI Gateway (壬远AI网关) - 报表库 DDL（MySQL 形态）
+      --
+      -- 本文件定义报表库（独立于控制面库，见 design-docs/sys-design/报表库设计文档.md）
+      -- 的两张表：
+      --   1. bfe_ai_request_log  明细表（89 列，与 Doris 明细表同名同列）：由 log-reader
+      --      mod_log_mysql 插件批量幂等写入（INSERT ... ON DUPLICATE KEY UPDATE）；
+      --   2. bfe_ai_metrics_1m   分钟聚合表（37 维 + 24 指标，与 Doris 同名表对齐）：
+      --      由 ai-gateway-api 分钟聚合 JOB 生成，供 /open-api/v1/report/* 查询。
+      --
+      -- 执行方式（schema-first：先建表后启用 log-reader 插件，插件不自动建表）：
+      --   1. 将本文件中的 ${INIT_DATE} 替换为建表当日 +3 天的日期（YYYY-MM-DD），
+      --      使 p_init 分区覆盖建表后 3 天；后续分区由 ai-gateway-api 分区管理 JOB
+      --      自动滚动维护（每 6h 巡检，向前建 3 天、DROP 超 RetentionDays 的分区）；
+      --   2. 通过 mysql 客户端在目标实例执行，例如：
+      --      mysql -u<user> -p<password> < db_ddl_report_mysql.sql
+      --   3. 要求 MySQL >= 5.7.8（JSON 列），推荐 8.0；引擎 InnoDB，字符集 utf8mb4。
+      --
+      -- 账号权限（最小权限原则，详见报表库设计文档 §5）：
+      --   - 写入账号（log-reader）：明细表 INSERT/UPDATE，无 DDL/DELETE；
+      --   - 查询/维护账号（ai-gateway-api）：明细表/聚合表 SELECT、聚合表 INSERT/DELETE、
+      --     明细表 DELETE（非分区降级清理）、ALTER TABLE（分区管理）。
+      -- ============================================================================
+
+      -- 报表库：独立于控制面库，按最小权限原则分配账号
+      CREATE DATABASE IF NOT EXISTS bfe_report
+        DEFAULT CHARACTER SET utf8mb4
+        DEFAULT COLLATE utf8mb4_unicode_ci;
+
+      USE bfe_report;
+
+      -- ---------------------------------
+      -- 明细表 bfe_ai_request_log（89 列）
+      -- 列清单/列序/类型与 Doris 明细表一致，差异仅在类型适配：
+      --   ARRAY<STRUCT<...>> 列用 JSON 存储（7 个：req_headers、res_headers、
+      --   ai_route_rule_hits、ai_cluster_key_names、ai_rate_limit_hits、
+      --   ai_auth_reject_quota_plans、ai_auth_hit_quota_plans），log_time 用 DATETIME。
+      -- 三处修正已经过 log-reader LR03 集成测试（真实 MySQL 8.4）验证：
+      --   1. 长文本列（origin_uri/final_uri/x_forward_for/authorization/referrer/
+      --      user_agent/cookie/res_location）使用 TEXT——utf8mb4 下 VARCHAR 长度总和
+      --      会超过 MySQL 65535 字节行上限（Error 1118）；
+      --   2. 幂等键中的字符串列 ai_apikey_id / ai_requested_model 允许 NULL——写入侧
+      --      零值规则把空字符串映射为 NULL（未认证请求即如此），NOT NULL 会使这类
+      --      写入整批失败（Error 1048）；hostid / log_time 由 log-reader 构造保证
+      --      非空，保持 NOT NULL；
+      --   3. 按天 RANGE 分区——MySQL 无动态分区，分区管理 JOB 必须先于数据到达建好
+      --      分区，否则对应日期的写入被直接拒绝（Error 1526）。
+      CREATE TABLE IF NOT EXISTS bfe_ai_request_log (
+          hostid                  VARCHAR(256)  NOT NULL DEFAULT '',
+          log_time                DATETIME      NOT NULL,
+          ai_apikey_id            VARCHAR(256)  DEFAULT NULL,
+          ai_requested_model      VARCHAR(128)  DEFAULT NULL,
+          logid                   BIGINT        DEFAULT NULL,
+          product                 VARCHAR(64)   DEFAULT NULL,
+          log_tag                 VARCHAR(64)   DEFAULT NULL,
+          -- 客户端连接
+          client_ip               VARCHAR(64)   DEFAULT NULL,
+          client_network          VARCHAR(16)   DEFAULT NULL,
+          is_trust_src_ip         TINYINT       DEFAULT NULL,
+          req_num                 INT           DEFAULT NULL,
+          session_id              BIGINT        DEFAULT NULL,
+          bfe_ip                  VARCHAR(64)   DEFAULT NULL,
+          sock_src_ip             VARCHAR(64)   DEFAULT NULL,
+          vip                     VARCHAR(64)   DEFAULT NULL,
+          vip6                    VARCHAR(128)  DEFAULT NULL,
+          -- 错误
+          err_code                VARCHAR(64)   DEFAULT NULL,
+          err_msg                 VARCHAR(512)  DEFAULT NULL,
+          -- 请求（长文本列用 TEXT，见修正 1）
+          proto                   VARCHAR(16)   DEFAULT NULL,
+          header_host             VARCHAR(256)  DEFAULT NULL,
+          origin_uri              TEXT          DEFAULT NULL,
+          final_uri               TEXT          DEFAULT NULL,
+          method                  VARCHAR(16)   DEFAULT NULL,
+          content_type            VARCHAR(128)  DEFAULT NULL,
+          x_forward_for           TEXT          DEFAULT NULL,
+          accept_language         VARCHAR(256)  DEFAULT NULL,
+          authorization           TEXT          DEFAULT NULL,
+          transfer_encoding       VARCHAR(64)   DEFAULT NULL,
+          referrer                TEXT          DEFAULT NULL,
+          user_agent              TEXT          DEFAULT NULL,
+          delegation              VARCHAR(256)  DEFAULT NULL,
+          uid                     VARCHAR(256)  DEFAULT NULL,
+          cookie                  TEXT          DEFAULT NULL,
+          req_headers             JSON          DEFAULT NULL,
+          req_header_len          INT           DEFAULT NULL,
+          req_body_len            INT           DEFAULT NULL,
+          -- 路由
+          cluster                 VARCHAR(256)  DEFAULT NULL,
+          sub_cluster             VARCHAR(256)  DEFAULT NULL,
+          backend_info            VARCHAR(256)  DEFAULT NULL,
+          backend_retry           TINYINT       DEFAULT NULL,
+          -- 响应
+          res_status_code         SMALLINT      DEFAULT NULL,
+          res_header_len          INT           DEFAULT NULL,
+          res_body_len            INT           DEFAULT NULL,
+          res_content_type        VARCHAR(128)  DEFAULT NULL,
+          res_location            TEXT          DEFAULT NULL,
+          res_transfer_encoding   VARCHAR(64)   DEFAULT NULL,
+          res_headers             JSON          DEFAULT NULL,
+          -- 耗时（毫秒）
+          all_time                INT           DEFAULT NULL,
+          read_client_time        INT           DEFAULT NULL,
+          cluster_serve_time      INT           DEFAULT NULL,
+          backend_serve_time      INT           DEFAULT NULL,
+          write_client_time       INT           DEFAULT NULL,
+          connect_backend_time    INT           DEFAULT NULL,
+          proxy_delay_time        INT           DEFAULT NULL,
+          session_offset_time     INT           DEFAULT NULL,
+          -- API Key 标签（写入时由 log-reader 从 ai_apikeytags 打平）
+          level1Name              VARCHAR(128)  DEFAULT NULL,
+          level1                  VARCHAR(128)  DEFAULT NULL,
+          level2Name              VARCHAR(128)  DEFAULT NULL,
+          level2                  VARCHAR(128)  DEFAULT NULL,
+          level3Name              VARCHAR(128)  DEFAULT NULL,
+          level3                  VARCHAR(128)  DEFAULT NULL,
+          level4Name              VARCHAR(128)  DEFAULT NULL,
+          level4                  VARCHAR(128)  DEFAULT NULL,
+          level5Name              VARCHAR(128)  DEFAULT NULL,
+          level5                  VARCHAR(128)  DEFAULT NULL,
+          -- AI 可观测
+          ai_target_model         VARCHAR(128)  DEFAULT NULL,
+          ai_stream               TINYINT       DEFAULT NULL,
+          ai_input_tokens         BIGINT        DEFAULT NULL,
+          ai_output_tokens        BIGINT        DEFAULT NULL,
+          ai_total_tokens         BIGINT        DEFAULT NULL,
+          ai_cache_read_tokens    BIGINT        DEFAULT NULL,
+          ai_cache_write_tokens   BIGINT        DEFAULT NULL,
+          ai_audio_input_tokens   BIGINT        DEFAULT NULL,
+          ai_audio_output_tokens  BIGINT        DEFAULT NULL,
+          ai_image_count          BIGINT        DEFAULT NULL,
+          ai_ttft_us              BIGINT        DEFAULT NULL,
+          ai_tpot_us              BIGINT        DEFAULT NULL,
+          ai_provider             VARCHAR(64)   DEFAULT NULL,
+          ai_protocol             VARCHAR(64)   DEFAULT NULL,
+          ai_mode                 VARCHAR(64)   DEFAULT NULL,
+          ai_retry_count          INT           DEFAULT NULL,
+          ai_cost_value           BIGINT        DEFAULT NULL,
+          ai_cost_currency        VARCHAR(16)   DEFAULT NULL,
+          ai_route_rule_hits      JSON          DEFAULT NULL,
+          ai_cluster_key_names    JSON          DEFAULT NULL,
+          ai_rate_limit_hits      JSON          DEFAULT NULL,
+          ai_auth_reject_reason   VARCHAR(256)  DEFAULT NULL,
+          ai_auth_reject_quota_plans JSON       DEFAULT NULL,
+          ai_auth_hit_quota_plans JSON          DEFAULT NULL,
+          -- 幂等键：与 Doris UNIQUE KEY 一致，log-reader 重发/-b 补读安全；
+          -- 唯一键长度 (256+256+128)*4+5 ≈ 2565 字节 < 3072 InnoDB 上限，无需前缀索引；
+          -- 唯一键包含分区列 log_time（MySQL 分区表约束）
+          UNIQUE KEY uk_dedup (hostid, log_time, ai_apikey_id, ai_requested_model),
+          -- 索引服务于报表查询过滤维度：模型/API Key/提供商/Host/状态码 + 时间
+          KEY idx_model_time (ai_target_model, log_time),
+          KEY idx_apikey_time (ai_apikey_id, log_time),
+          KEY idx_provider_time (ai_provider, log_time),
+          KEY idx_host_time (hostid, log_time),
+          KEY idx_status_time (res_status_code, log_time)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      PARTITION BY RANGE (TO_DAYS(log_time)) (
+          PARTITION p_init VALUES LESS THAN (TO_DAYS('${INIT_DATE}'))
+      );
+
+      -- ---------------------------------
+      -- 聚合表 bfe_ai_metrics_1m（37 维 + 24 指标）
+      -- 维度集合与指标列与 Doris bfe_ai_metrics_1m 完全一致
+      -- （见 ai-gateway-observability/doris/sqls/bfe_ai_metrics_1m.sql），MySQL 形态为
+      -- 普通 InnoDB 表：
+      --   - 不设唯一键/主键：37 个维度列（含多个 VARCHAR(256)）无法构成 InnoDB 唯一键
+      --     （3072 字节上限），且幂等性由聚合 JOB 的「DELETE 窗口 + INSERT SELECT 事务」
+      --     保证；InnoDB 隐式 rowid 作为主键；
+      --   - 维度列全部 NOT NULL DEFAULT ''：聚合 JOB 写入时 IFNULL(col,'') 归一，保证
+      --     GROUP BY 与过滤谓词行为对齐 Doris；
+      --   - 维度列长度取 Doris 定义与明细表的交集（如 ai_apikey_id 聚合表 128 vs
+      --     明细表 256，截断口径由聚合 SQL 保证一致）；
+      --   - 索引围绕 ts_min 与排行热维度，与查询 WHERE ts_min BETWEEN ... GROUP BY
+      --     <维度> 的模式匹配。
+      CREATE TABLE IF NOT EXISTS bfe_ai_metrics_1m (
+          ts_min             DATETIME      NOT NULL,
+          hostid             VARCHAR(256)  NOT NULL DEFAULT '',
+          ai_apikey_id       VARCHAR(128)  NOT NULL DEFAULT '',
+          ai_requested_model VARCHAR(128)  NOT NULL DEFAULT '',
+          ai_target_model    VARCHAR(128)  NOT NULL DEFAULT '',
+          ai_stream          TINYINT       NOT NULL DEFAULT 0,
+          product            VARCHAR(64)   NOT NULL DEFAULT '',
+          cluster            VARCHAR(64)   NOT NULL DEFAULT '',
+          sub_cluster        VARCHAR(64)   NOT NULL DEFAULT '',
+          backend_info       VARCHAR(256)  NOT NULL DEFAULT '',
+          method             VARCHAR(16)   NOT NULL DEFAULT '',
+          res_status_code    SMALLINT      NOT NULL DEFAULT 0,
+          err_code           VARCHAR(64)   NOT NULL DEFAULT '',
+          header_host        VARCHAR(256)  NOT NULL DEFAULT '',
+          ai_provider        VARCHAR(64)   NOT NULL DEFAULT '',
+          ai_protocol        VARCHAR(64)   NOT NULL DEFAULT '',
+          ai_mode            VARCHAR(64)   NOT NULL DEFAULT '',
+          ai_cost_currency   VARCHAR(16)   NOT NULL DEFAULT '',
+          level1Name         VARCHAR(128)  NOT NULL DEFAULT '',
+          level1             VARCHAR(128)  NOT NULL DEFAULT '',
+          level2Name         VARCHAR(128)  NOT NULL DEFAULT '',
+          level2             VARCHAR(128)  NOT NULL DEFAULT '',
+          level3Name         VARCHAR(128)  NOT NULL DEFAULT '',
+          level3             VARCHAR(128)  NOT NULL DEFAULT '',
+          level4Name         VARCHAR(128)  NOT NULL DEFAULT '',
+          level4             VARCHAR(128)  NOT NULL DEFAULT '',
+          level5Name         VARCHAR(128)  NOT NULL DEFAULT '',
+          level5             VARCHAR(128)  NOT NULL DEFAULT '',
+          rate_limit_policy_id VARCHAR(128) NOT NULL DEFAULT '',
+          rate_limit_type    VARCHAR(32)   NOT NULL DEFAULT '',
+          rate_limit_rule_name VARCHAR(128) NOT NULL DEFAULT '',
+          ai_auth_reject_reason VARCHAR(256) NOT NULL DEFAULT '',
+          ai_auth_reject_quota_plans_slot1 VARCHAR(128) NOT NULL DEFAULT '',
+          ai_auth_reject_quota_plans_slot2 VARCHAR(128) NOT NULL DEFAULT '',
+          ai_auth_reject_quota_plans_slot3 VARCHAR(128) NOT NULL DEFAULT '',
+          ai_auth_reject_quota_plans_slot4 VARCHAR(128) NOT NULL DEFAULT '',
+          ai_auth_reject_quota_plans_slot5 VARCHAR(128) NOT NULL DEFAULT '',
+          -- 聚合指标（24 列，BIGINT，SUM 口径）
+          request_count      BIGINT        DEFAULT NULL,
+          error_count        BIGINT        DEFAULT NULL,
+          auth_reject_count  BIGINT        DEFAULT NULL,
+          input_tokens       BIGINT        DEFAULT NULL,
+          output_tokens      BIGINT        DEFAULT NULL,
+          total_tokens       BIGINT        DEFAULT NULL,
+          ttft_us_sum        BIGINT        DEFAULT NULL,
+          tpot_us_sum        BIGINT        DEFAULT NULL,
+          req_header_bytes   BIGINT        DEFAULT NULL,
+          req_body_bytes     BIGINT        DEFAULT NULL,
+          res_header_bytes   BIGINT        DEFAULT NULL,
+          res_body_bytes     BIGINT        DEFAULT NULL,
+          rate_limit_hits    BIGINT        DEFAULT NULL,
+          backend_retries    BIGINT        DEFAULT NULL,
+          all_time_sum       BIGINT        DEFAULT NULL,
+          cluster_serve_sum  BIGINT        DEFAULT NULL,
+          backend_serve_sum  BIGINT        DEFAULT NULL,
+          ai_retry_count_sum BIGINT        DEFAULT NULL,
+          ai_cost_value_sum  BIGINT        DEFAULT NULL,
+          cache_read_tokens  BIGINT        DEFAULT NULL,
+          cache_write_tokens BIGINT        DEFAULT NULL,
+          ai_audio_input_tokens  BIGINT    DEFAULT NULL,
+          ai_audio_output_tokens BIGINT    DEFAULT NULL,
+          ai_image_count     BIGINT        DEFAULT NULL,
+          KEY idx_ts (ts_min),
+          KEY idx_model_ts (ai_target_model, ts_min),
+          KEY idx_apikey_ts (ai_apikey_id, ts_min),
+          KEY idx_provider_ts (ai_provider, ts_min)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      PARTITION BY RANGE (TO_DAYS(ts_min)) (
+          PARTITION p_init VALUES LESS THAN (TO_DAYS('${INIT_DATE}'))
+      );
+
 ---
 apiVersion: batch/v1
 kind: Job
@@ -625,13 +982,32 @@ spec:
               echo "Checking if database is already initialized..."
               TABLE_COUNT=$(mysql --protocol=tcp --connect-timeout=10 -h mysql.ai-gateway-system.svc.cluster.local -uroot --password="$MYSQL_ROOT_PASSWORD" -sN \
                   -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='open_bfe' AND table_name='users';" 2>/dev/null || echo "0")
-              if [ "$TABLE_COUNT" -gt 0 ]; then
-                  echo "Database already initialized, skipping."
-                  exit 0
+              if [ "$TABLE_COUNT" -eq 0 ]; then
+                  echo "Starting control plane database initialization..."
+                  mysql --protocol=tcp --connect-timeout=10 -h mysql.ai-gateway-system.svc.cluster.local -uroot --password="$MYSQL_ROOT_PASSWORD" < /init-scripts/db_ddl.sql
+                  echo "Control plane database initialization completed!"
+              else
+                  echo "Control plane database already initialized, skipping."
               fi
-              echo "Starting database initialization..."
-              mysql --protocol=tcp --connect-timeout=10 -h mysql.ai-gateway-system.svc.cluster.local -uroot --password="$MYSQL_ROOT_PASSWORD" < /init-scripts/db_ddl.sql
-              echo "Database initialization completed!"
+              # Report database initialization (separate from control plane).
+              # Guard requires BOTH report tables: a previous partial run (DDL
+              # aborted midway) must be repaired, and the DDL is idempotent
+              # (CREATE TABLE IF NOT EXISTS), so re-running is safe.
+              REPORT_TABLE_COUNT=$(mysql --protocol=tcp --connect-timeout=10 -h mysql.ai-gateway-system.svc.cluster.local -uroot --password="$MYSQL_ROOT_PASSWORD" -sN \
+                  -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='bfe_report' AND table_name IN ('bfe_ai_request_log','bfe_ai_metrics_1m');" 2>/dev/null || echo "0")
+              if [ "$REPORT_TABLE_COUNT" -ne 2 ]; then
+                  echo "Starting report database initialization (found $REPORT_TABLE_COUNT of 2 tables)..."
+                  # Substitute ${INIT_DATE} with today + 3 days (portable epoch math)
+                  INIT_DATE=$(date -d "@$(( $(date +%s) + 3 * 86400 ))" +%Y-%m-%d 2>/dev/null || date -v+3d +%Y-%m-%d 2>/dev/null || echo "2099-01-01")
+                  if ! sed "s/\${INIT_DATE}/$INIT_DATE/g" /init-scripts/db_ddl_report_mysql.sql | \
+                      mysql --protocol=tcp --connect-timeout=10 -h mysql.ai-gateway-system.svc.cluster.local -uroot --password="$MYSQL_ROOT_PASSWORD"; then
+                      echo "ERROR: report database initialization failed, see mysql errors above" >&2
+                      exit 1
+                  fi
+                  echo "Report database initialization completed!"
+              else
+                  echo "Report database already initialized, skipping."
+              fi
           volumeMounts:
             - name: init-scripts
               mountPath: /init-scripts
@@ -639,4 +1015,3 @@ spec:
         - name: init-scripts
           configMap:
             name: mysql-init
-

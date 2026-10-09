@@ -88,11 +88,38 @@ CREATE TABLE `clusters` (
   `failure_status` tinyint(1) NOT NULL DEFAULT '0',
   `max_conns_per_host` int(11) NOT NULL DEFAULT '0',
   `llm_config` text,
+  `balance_mode` varchar(16) NOT NULL DEFAULT 'WRR' COMMENT '均衡模式：WRR/EPP',
+  `epp_config` text COMMENT 'EPP调度配置（简化用户形态JSON）',
   `created_at` datetime NOT NULL,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `name_index` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+-- create epp_instances (EPP实例池表)
+DROP TABLE IF EXISTS `epp_instances`;
+CREATE TABLE `epp_instances` (
+  `id` varchar(128) NOT NULL COMMENT '实例id，池内全局唯一',
+  `host` varchar(255) NOT NULL COMMENT '实例主机名或IP（IPv6字面量不带括号）',
+  `port` int(11) NOT NULL COMMENT '实例端口',
+  `group_name` varchar(128) NOT NULL COMMENT '实例组名',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_host_port` (`host`, `port`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='EPP实例池表';
+
+-- create epp_assignments (EPP分配表，只存主)
+DROP TABLE IF EXISTS `epp_assignments`;
+CREATE TABLE `epp_assignments` (
+  `cluster` varchar(255) NOT NULL COMMENT 'cluster名',
+  `group_name` varchar(128) NOT NULL COMMENT '实例组名',
+  `primary_instance_id` varchar(128) NOT NULL COMMENT '主实例id',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`cluster`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='EPP分配表';
 
 
 -- create lb_matrices
@@ -234,7 +261,8 @@ CREATE TABLE `config_versions` (
   `version` varchar(255) NOT NULL,
   `created_at` datetime NOT NULL,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_name_version` (`name`, `version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -294,6 +322,14 @@ CREATE TABLE api_keys (
   INDEX idx_route_rules_id (route_rules_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 comment = "api keys";
 
+-- create api_key_id_seq
+DROP TABLE IF EXISTS `api_key_id_seq`;
+CREATE TABLE `api_key_id_seq` (
+  `product_name` varchar(255) NOT NULL COMMENT '产品线名称',
+  `next_seq` bigint NOT NULL DEFAULT '1' COMMENT '下一个可用序号',
+  PRIMARY KEY (`product_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='API-Key ID 序号分配表';
+
 -- create api_key_tokens
 DROP TABLE IF EXISTS `api_key_tokens`;
 CREATE TABLE api_key_tokens (
@@ -303,7 +339,7 @@ CREATE TABLE api_key_tokens (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP  comment "更新时间",
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_key` (`api_key`)
-)ENGINE=InnoDB DEFAULT CHARSET=utf8 comment = "api-key存储表"; 
+)ENGINE=InnoDB DEFAULT CHARSET=utf8 comment = "api-key存储表";
 
 -- create ai_route_rules
 DROP TABLE IF EXISTS `ai_route_rules`;
@@ -354,6 +390,7 @@ CREATE TABLE `entities` (
   `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
   `entity_id` VARCHAR(64) NOT NULL COMMENT 'Entity唯一标识（业务ID）',
   `name` VARCHAR(128) NOT NULL COMMENT 'Entity名称',
+  `description` VARCHAR(255) NOT NULL DEFAULT '' COMMENT 'Entity描述',
   `type` VARCHAR(32) NOT NULL COMMENT 'Entity类型（关联entity_types.type_name）',
   `parent_id` VARCHAR(64) DEFAULT NULL COMMENT '父Entity ID',
   `allow_models` TEXT COMMENT '允许访问的模型白名单（JSON数组）',
@@ -372,33 +409,69 @@ CREATE TABLE `entities` (
   INDEX `idx_route_rules_id` (`route_rules_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Entity实体表';
 
+-- create entity_id_seq (Entity ID序号分配表)
+DROP TABLE IF EXISTS `entity_id_seq`;
+CREATE TABLE `entity_id_seq` (
+  `name` varchar(32) NOT NULL COMMENT '序号键（固定为entity）',
+  `next_seq` bigint NOT NULL DEFAULT '1' COMMENT '下一个可用序号',
+  PRIMARY KEY (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Entity ID序号分配表';
+
 -- create quota_plans (配额计划表)
 DROP TABLE IF EXISTS `quota_plans`;
 CREATE TABLE `quota_plans` (
   `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
   `unlimited` TINYINT(1) DEFAULT 1 COMMENT '是否无限配额：0-有限，1-无限',
   `pass_when_no_enough_quota` TINYINT(1) DEFAULT 0 COMMENT '配额不足时是否放行：0-拒绝，1-放行',
-  `quota` BIGINT DEFAULT 0 COMMENT '配额总量',
-  `unit` VARCHAR(32) DEFAULT 'total_token' COMMENT '配额单位',
+  `quota` DECIMAL(18,8) DEFAULT 0 COMMENT '配额总量',
+  `unit` VARCHAR(32) DEFAULT 'total_token' COMMENT '配额单位：total_token/RMB',
   `reset_period` VARCHAR(16) DEFAULT 'never' COMMENT '配额重置周期：never/weekly/monthly，重置均基于日历周期（如自然周/自然月）',
+  `last_reset_at` DATETIME DEFAULT NULL COMMENT '上次重置时间',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   INDEX `idx_unlimited` (`unlimited`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='配额计划表';
 
--- create quota_balances (配额余额表)
-DROP TABLE IF EXISTS `quota_balances`;
-CREATE TABLE `quota_balances` (
+-- create model_prices (模型定价表)
+DROP TABLE IF EXISTS `model_prices`;
+CREATE TABLE `model_prices` (
   `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
-  `quota_plan_id` BIGINT NOT NULL COMMENT '配额计划ID',
-  `used` BIGINT DEFAULT 0 COMMENT '已使用量',
-  `remaining` BIGINT DEFAULT 0 COMMENT '剩余量',
-  `last_reset_at` DATETIME DEFAULT NULL COMMENT '上次重置时间',
+  `provider` VARCHAR(255) NOT NULL COMMENT 'Provider / Cluster 标识',
+  `model` VARCHAR(255) NOT NULL COMMENT '模型名',
+  `base_model` VARCHAR(255) NOT NULL COMMENT '归一化基础模型名',
+  `mode` VARCHAR(50) NOT NULL COMMENT '模型模式',
+  `capabilities` JSON COMMENT '能力列表',
+  `supported_parameters` JSON COMMENT '支持的请求参数列表',
+  `limits` JSON COMMENT '限制对象',
+  `prices` JSON NOT NULL COMMENT '价格对象',
+  `tier_prices` JSON COMMENT '分时段价格对象',
+  `price_currency` VARCHAR(10) DEFAULT 'RMB' COMMENT '币种',
+  `metadata` JSON COMMENT '元数据',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  UNIQUE KEY `uk_quota_plan_id` (`quota_plan_id`),
-  INDEX `idx_remaining` (`remaining`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='配额余额表';
+  UNIQUE KEY `uk_provider_model_mode` (`provider`, `model`, `mode`),
+  INDEX `idx_provider` (`provider`),
+  INDEX `idx_mode` (`mode`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='模型定价表';
+
+-- create providers (模型提供商表)
+DROP TABLE IF EXISTS `providers`;
+CREATE TABLE `providers` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+  `name` VARCHAR(255) NOT NULL COMMENT 'Provider 标识',
+  `description` VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '描述',
+  `model_endpoint` JSON COMMENT '模型发现端点配置',
+  `models` JSON COMMENT '支持的模型列表',
+  `api_keys` JSON COMMENT 'API key 列表',
+  `instance_pool` JSON NOT NULL COMMENT '实例池列表',
+  `model_protocols` JSON NOT NULL COMMENT '支持的模型协议列表',
+  `protocol_paths` JSON COMMENT '按协议的上游路径前缀（protocol -> base path）',
+  `time_zone` VARCHAR(255) NOT NULL DEFAULT 'Asia/Shanghai' COMMENT '计算时段所使用的时区',
+  `tiers` JSON COMMENT '时段 tier 定义列表',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  UNIQUE KEY `uk_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='模型提供商表';
 
 -- create rate_limit_policies (限流策略表)
 DROP TABLE IF EXISTS `rate_limit_policies`;
@@ -427,6 +500,36 @@ CREATE TABLE `route_rules` (
   INDEX `idx_enabled` (`enabled`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='路由规则表';
 
+-- create operation_logs
+DROP TABLE IF EXISTS `operation_logs`;
+CREATE TABLE `operation_logs` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `log_id` varchar(64) NOT NULL COMMENT '请求唯一标识，与 access log 中的 LogID 一致，用于关联与去重',
+  `operator_type` tinyint(4) NOT NULL DEFAULT '0' COMMENT '操作者类型：0=user, 1=token',
+  `operator_id` bigint(20) NOT NULL DEFAULT '0' COMMENT '操作者在对应表中的主键 ID',
+  `operator_name` varchar(255) NOT NULL DEFAULT '' COMMENT '操作者名称（user_name 或 token_name）',
+  `action` varchar(32) NOT NULL COMMENT '操作动作：create/update/delete/reset/...',
+  `resource_type` varchar(64) NOT NULL COMMENT '资源类型：entity/api_key/provider/...',
+  `resource_id` varchar(255) NOT NULL DEFAULT '' COMMENT '被操作资源业务 ID',
+  `resource_name` varchar(512) NOT NULL DEFAULT '' COMMENT '被操作资源名称，便于展示',
+  `resource_parent_id` varchar(255) NOT NULL DEFAULT '' COMMENT '资源父级业务 ID（如 entity 层级中的父节点）',
+  `status` tinyint(4) NOT NULL DEFAULT '1' COMMENT '操作结果：1=success, 2=failed',
+  `error_msg` varchar(1024) NOT NULL DEFAULT '' COMMENT '失败时的简要错误信息',
+  `change_summary` mediumtext COMMENT '变更摘要 JSON，记录变更前后关键字段（脱敏后）',
+  `request_path` varchar(512) NOT NULL DEFAULT '' COMMENT '请求路径',
+  `request_method` varchar(16) NOT NULL DEFAULT '' COMMENT '请求方法',
+  `client_ip` varchar(64) NOT NULL DEFAULT '' COMMENT '客户端 IP',
+  `user_agent` varchar(512) NOT NULL DEFAULT '' COMMENT 'User-Agent',
+  `created_at` datetime NOT NULL COMMENT '操作发生时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_operator` (`operator_type`, `operator_id`),
+  KEY `idx_resource` (`resource_type`, `resource_id`),
+  KEY `idx_action` (`action`),
+  KEY `idx_created_at` (`created_at`),
+  KEY `idx_log_id` (`log_id`),
+  KEY `idx_resource_parent` (`resource_parent_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI 网关配置操作日志表';
+
 -- insert default user
 insert into users (id, name, password, scopes, created_at) values(1, 'admin', 'admin', 'System', now());
 insert into users (id, name, type, password, ticket, ticket_created_at, scopes, created_at) values (2, 'demo', 1, '', 'eT5QWkLhQmp6lO4NWxAc', now(), 'Product', now());
@@ -436,10 +539,13 @@ insert into products (id, name, `description`, mail_list, contact_person, create
 insert into user_products (user_id, product_id, created_at, updated_at) values (2, 2, now(), now());
 
 
--- pools init 
+-- pools init
 INSERT INTO `pools` ( `id`, `name`, `product_id`, `ready`, `instance_detail`, `type`, `tag`, `role`, `created_at`, `updated_at`) VALUES ( 1, 'BFE.aipool', 1, 1, '[{"Name":"127.0.0.1","Addr":"127.0.0.1","Port":8080,"Ports":{"Default":8080},"tags":{"key":"value"},"Weight":1,"Disable":false}]', 1, 1, 'COMMON', NOW(), NOW());
 -- bfe_clusters init
 INSERT INTO `bfe_clusters` ( `id`, `name`, `pool_name`, `capacity`, `enabled`, `gtc_enabled`, `gtc_manual_enabled`, `exempt_traffic_check`, `created_at`, `updated_at`) VALUES ( 1, 'BFE-AI_product.szyf', 'BFE.aipool', 0, 1, 1, 1, 0, NOW(), NOW());
 
 -- 初始化默认 global 路由表
 INSERT IGNORE INTO `route_rules` (`type`, `owner`, `enabled`, `rules`) VALUES ('global', 'global', 0, '[]');
+
+-- Pre-seed single EPP instance for Docker Compose (test mode).
+INSERT INTO `epp_instances` (`id`, `host`, `port`, `group_name`) VALUES ('epp-0', '127.0.0.1', 9002, 'default');

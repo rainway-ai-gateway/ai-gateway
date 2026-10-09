@@ -3,7 +3,7 @@
 
 [English](README.md) | 简体中文
 
-# YF AI Gateway
+# Rainway AI Gateway
 
 AI Gateway 是基于 [BFE](https://github.com/bfenetworks/bfe) 构建的开源 AI 流量网关，为多个 AI 模型提供商提供统一的 API 管理、认证、限流和智能路由能力，让开发者通过单一入口访问所有 AI 服务。
 
@@ -15,12 +15,12 @@ AI Gateway 包含如下核心组件：
 
 | 组件 | 角色 | 说明 | 仓库 |
 |---|---|---|---|
-| **AI Gateway API** | 控制面 | 对外提供 Open API，完成策略/配置的变更、存储和下发 | [yf-networks/ai-gateway-api](https://github.com/yf-networks/ai-gateway-api) |
-| **Dashboard** | 管理控制台 | Web 可视化管理界面（内置在 API 镜像中） | [yf-networks/ai-gateway-web](https://github.com/yf-networks/ai-gateway-web) |
+| **AI Gateway API** | 控制面 | 对外提供 Open API，完成策略/配置的变更、存储和下发 | [rainway-ai-gatewa/ai-gateway-api](https://github.com/rainway-ai-gateway/ai-gateway-api) |
+| **Dashboard** | 管理控制台 | Web 可视化管理界面（内置在 API 镜像中） | [rainway-ai-gatewa/ai-gateway-web](https://github.com/rainway-ai-gateway/ai-gateway-web) |
 | **BFE** | 数据面 | 负责流量转发与接入控制 | [bfenetworks/bfe](https://github.com/bfenetworks/bfe) |
 | **Conf Agent** | 配置代理 | 获取最新配置并触发 BFE 热加载 | [bfenetworks/conf-agent](https://github.com/bfenetworks/conf-agent) |
+| **EPP** | Endpoint Picker | 多集群调度服务（基于 llm-d-router） | [rainway-ai-gateway/ai-gateway-epp](https://github.com/rainway-ai-gateway/ai-gateway-epp) |
 | **Log Reader** | 日志采集 | 读取 BFE 访问日志并发送至 Kafka | [bfenetworks/log-reader](https://github.com/bfenetworks/log-reader) |
-| **Service Controller** | 服务发现 | 发现并同步 K8s 后端服务（仅 K8s 部署） | [bfenetworks/service-controller](https://github.com/bfenetworks/service-controller) |
 
 ## 主要功能
 
@@ -59,7 +59,7 @@ AI Gateway 包含如下核心组件：
 > 或使用独立二进制：`docker-compose up -d`
 
 ```bash
-git clone https://github.com/yf-networks/ai-gateway.git
+git clone https://github.com/rainway-ai-gateway/ai-gateway.git
 cd ai-gateway
 docker compose up -d
 ```
@@ -110,7 +110,7 @@ docker compose --profile observability up -d
 Grafana：`http://localhost:3000`（admin / admin）
 Doris FE Web：`http://localhost:8030`
 
-> Log Reader 内置于 AI Gateway 镜像中，作为第 3 个进程与 BFE、Conf Agent 并行运行。它读取 `pb_access3.log` 并发送至 Kafka，配置位于 `conf/log-reader/`。若 Kafka 不可用，Log Reader 静默重试，不影响流量路由。
+> Log Reader 内置于 AI Gateway 镜像中，与 BFE、EPP、Conf Agent 并行运行。它读取 `pb_access3.log` 并发送至 Kafka，配置位于 `conf/log-reader/`。若 Kafka 不可用，Log Reader 静默重试，不影响流量路由。
 
 ### 手动部署（自行准备 MySQL / Redis）
 
@@ -160,7 +160,7 @@ docker run -d --name ai-gateway \
   -v $(pwd)/conf/name_conf.data:/home/work/bfe/conf/name_conf.data \
   -v $(pwd)/conf/bfe.conf:/home/work/bfe/conf/bfe.conf \
   -v $(pwd)/conf/log-reader/:/home/work/log-reader/conf/ \
-  ghcr.io/yf-networks/ai-gateway:latest
+  ghcr.io/rainway-ai-gateway/ai-gateway:latest
 ```
 
 Dashboard：`http://localhost:8183`（admin / admin）
@@ -204,14 +204,14 @@ version: v0.3.0
 components:
   bfe:
     version: v1.8.4
-    image: ghcr.io/yf-networks/bfe:v1.8.4
+    image: ghcr.io/rainway-ai-gateway/bfe:v1.8.4
     provides:
       - bfe
       - conf-agent
       - log-reader
   ai-gateway-api:
     version: v0.0.6
-    image: ghcr.io/yf-networks/ai-gateway-api:v0.0.6
+    image: ghcr.io/rainway-ai-gateway/ai-gateway-api:v0.0.6
 ```
 
 更新 `VERSIONS.yaml` → 重新构建 → 打产品 tag 发布。
@@ -223,6 +223,8 @@ components:
 | 8080 | BFE | HTTP 流量入口 |
 | 8443 | BFE | HTTPS 流量入口 |
 | 8421 | BFE | 监控端口 |
+| 9002 | EPP | ext-proc gRPC（TLS） |
+| 9003 | EPP | Health check |
 | 8183 | API Server | API 服务 + Dashboard |
 | 8284 | API Server | 监控端口 |
 | 8992 | Log Reader | 监控端口（Kafka 计数器） |
@@ -238,8 +240,8 @@ AI Gateway 基于 [Apache License 2.0](LICENSE) 发布。
 ## 参考资料
 
 - [BFE](https://github.com/bfenetworks/bfe) — 数据面引擎
-- [AI Gateway API](https://github.com/yf-networks/ai-gateway-api) — 控制面
-- [AI Gateway Web](https://github.com/yf-networks/ai-gateway-web) — Dashboard 前端
+- [AI Gateway API](https://github.com/rainway-ai-gateway/ai-gateway-api) — 控制面
+- [AI Gateway Web](https://github.com/rainway-ai-gateway/ai-gateway-web) — Dashboard 前端
 - [Conf Agent](https://github.com/bfenetworks/conf-agent) — 配置代理
+- [AI Gateway EPP](https://github.com/rainway-ai-gateway/ai-gateway-epp) — Endpoint Picker（多集群调度）
 - [Log Reader](https://github.com/bfenetworks/log-reader) — 访问日志采集
-- [Service Controller](https://github.com/bfenetworks/service-controller) — K8s 服务发现

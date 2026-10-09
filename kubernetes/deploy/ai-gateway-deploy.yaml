@@ -75,8 +75,11 @@ spec:
       containers:
         - name: ai-gateway-api
           # Update this image to your registry.
-          image: ghcr.io/yf-networks/ai-gateway-api:latest
+          image: ghcr.io/rainway-ai-gateway/ai-gateway-api:latest
           imagePullPolicy: IfNotPresent
+          env:
+            - name: TZ
+              value: Asia/Shanghai
           ports:
             - name: http
               containerPort: 8183

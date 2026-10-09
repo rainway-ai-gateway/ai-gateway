@@ -38,8 +38,12 @@ services:
       retries: 10
 
   ai-gateway:
-    image: ghcr.nju.edu.cn/yf-networks/ai-gateway:v0.3.0
+    image: ghcr.nju.edu.cn/rainway-ai-gateway/ai-gateway:v0.7.0.1
     container_name: ai-gateway
+    environment:
+      TZ: Asia/Shanghai
+      AI_GATEWAY_EPP_TLS_CERT: /home/work/epp/certs/epp-cert.pem
+      AI_GATEWAY_EPP_TLS_KEY: /home/work/epp/certs/epp-key.pem
     ports:
       - "8080:8080"
       - "8183:8183"
@@ -54,6 +58,7 @@ services:
       - ./conf/name_conf.data:/home/work/bfe/conf/name_conf.data
       - ./conf/bfe.conf:/home/work/bfe/conf/bfe.conf
       - ./conf/log-reader/:/home/work/log-reader/conf/
+      - ./conf/epp/:/home/work/epp/certs/:ro
     depends_on:
       mysql:
         condition: service_healthy
@@ -130,6 +135,12 @@ services:
     ports:
       - "8030:8030"
       - "9030:9030"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h127.0.0.1 -P9030 -uroot --silent 2>/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
     profiles:
       - observability
 
@@ -206,6 +217,8 @@ services:
       - ./conf/doris/:/sql/:ro
     depends_on:
       doris-fe:
+        condition: service_healthy
+      doris-be:
         condition: service_started
     profiles:
       - observability
@@ -223,6 +236,6 @@ services:
       - ./conf/grafana/dashboards/:/etc/grafana/dashboards/:ro
     depends_on:
       doris-fe:
-        condition: service_started
+        condition: service_healthy
     profiles:
       - observability

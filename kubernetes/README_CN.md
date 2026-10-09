@@ -9,9 +9,10 @@
 本部署在 `ai-gateway-system` 命名空间中演示了各关键组件的交互：
 
 - **数据面**（bfe + conf-agent + log-reader）：流量转发、接入控制与访问日志采集
+- **EPP**（ai-gateway-epp）：多集群调度，连接控制面 InnerAPI
 - **控制面**（ai-gateway-api）：策略/配置下发接口
 - **基础依赖**（MySQL、Redis、Kafka）：为控制面提供存储与消息服务
-- **服务发现**（service-controller）：发现并同步后端服务
+- ~~**服务发现**（service-controller）：发现并同步后端服务~~ — 暂未启用，正在重构中
 - **示例后端**（llm-d inference simulator）：验证路由
 
 可选可观测栈（单独部署在 `default` 命名空间）：
@@ -25,6 +26,7 @@
 | conf-agent | ai-gateway-api | `ai-gateway-api.ai-gateway-system.svc.cluster.local:8183` |
 | ai-gateway-api | MySQL | `mysql.ai-gateway-system.svc.cluster.local:3306` |
 | bfe（SessionCache） | Redis | `redis.ai-gateway-system.svc.cluster.local:6379` |
+| bfe（bal_gslb） | ai-gateway-epp | `epp-0.ai-gateway-epp.ai-gateway-system.svc.cluster.local:9002` |
 | log-reader | Kafka | `kafka.ai-gateway-system.svc.cluster.local:9092` |
 | Doris Routine Load | Kafka | `kafka.ai-gateway-system.svc.cluster.local:9092` |
 | Grafana | Doris FE | `doris-fe.default.svc.cluster.local:9030` |
@@ -39,12 +41,13 @@
 | `kustomization.yaml` | Kustomize 资源汇总与镜像覆盖 |
 | `bfe-configmap.yaml` | BFE 配置（bfe.conf、conf-agent.toml、log-reader 配置） |
 | `bfe-deploy.yaml` | BFE 数据面 Deployment（单容器内含 bfe + conf-agent + log-reader） |
+| `ai-gateway-epp-deploy.yaml` | EPP StatefulSet（2 副本） + Headless Service + TLS ConfigMap |
 | `ai-gateway-configmap.yaml` | AI Gateway API 配置（DB/Redis、鉴权） |
 | `ai-gateway-deploy.yaml` | AI Gateway API Deployment 与 Service |
 | `mysql-deploy.yaml` | MySQL（Deployment、Service、初始化 ConfigMap、初始化 Job） |
 | `redis-deploy.yaml` | Redis Deployment 与 Service |
 | `kafka-deploy.yaml` | Kafka（StatefulSet、KRaft 单节点、Service） |
-| `service-controller-deploy.yaml` | 服务发现控制器 |
+| `service-controller-deploy.yaml` | 服务发现控制器（已在 `kustomization.yaml` 中注释，重构中暂未启用） |
 | `llm-d-inference-sim-deploy.yaml` | 示例后端推理模拟服务（单独 apply） |
 | `doris.yaml` | Doris FE + BE + 初始化 Job（单独 apply，可选） |
 | `grafana.yaml` | Grafana + 预配看板（单独 apply，可选） |
@@ -66,7 +69,7 @@ images:
   - name: ghcr.io/bfenetworks/bfe
     newName: ghcr.io/your-org/bfe
     newTag: v1.8.4
-  - name: ghcr.io/yf-networks/ai-gateway-api
+  - name: ghcr.io/rainway-ai-gateway/ai-gateway-api
     newName: ghcr.io/your-org/ai-gateway-api
     newTag: v0.0.6
   - name: ghcr.io/bfenetworks/service-controller
@@ -80,7 +83,7 @@ images:
 kubectl apply -k .
 ```
 
-部署：bfe（含 conf-agent + log-reader）、ai-gateway-api（含 Dashboard）、mysql、redis、kafka、service-controller。
+部署：bfe（含 conf-agent + log-reader）、ai-gateway-epp、ai-gateway-api（含 Dashboard）、mysql、redis、kafka。service-controller 已在 `kustomization.yaml` 中注释（重构中暂未启用）。
 
 ### 3. 部署测试服务（可选）
 
@@ -93,7 +96,10 @@ kubectl apply -f deploy/llm-d-inference-sim-deploy.yaml
 ### 4. 部署可观测栈（可选）
 
 ```bash
+kubectl apply -f deploy/doris-configmap.yaml
 kubectl apply -f deploy/doris.yaml
+
+kubectl apply -f deploy/grafana-configmap.yaml
 kubectl apply -f deploy/grafana.yaml
 ```
 

@@ -1,5 +1,12 @@
 # kafka_config.data
 
+# Kafka output data configuration
+# FieldMode values:
+#   require    - output only required fields
+#   default    - output default field set (current behavior, backward compatible)
+#   all        - output all available fields (60+ fields)
+#   customized - output fields listed in FieldNames + required fields
+
 [ConfFields]
 FieldMode = customized
 FieldNames= logid
@@ -37,16 +44,30 @@ FieldNames= backend_serve_time
 FieldNames= write_client_time
 FieldNames= connect_backend_time
 FieldNames= proxy_delay_time
-FieldNames= ai_apikey
+FieldNames= ai_apikey_id
 FieldNames= ai_apikeytags
 FieldNames= ai_requested_model
-FieldNames= ai_mapped_model
+FieldNames= ai_target_model
 FieldNames= ai_stream
-FieldNames= ai_prompt_tokens
+FieldNames= ai_input_tokens
 FieldNames= ai_output_tokens
 FieldNames= ai_total_tokens
+FieldNames= ai_audio_input_tokens
+FieldNames= ai_audio_output_tokens
+FieldNames= ai_image_count
+FieldNames= ai_image_input_tokens
+FieldNames= ai_video_count
 FieldNames= ai_ttft_us
 FieldNames= ai_tpot_us
 FieldNames= ai_rate_limit_hits
 FieldNames= ai_auth_reject_reason
 FieldNames= ai_auth_reject_quota_plans
+FieldNames= ai_provider
+FieldNames= ai_protocol
+FieldNames= ai_mode
+FieldNames= ai_retry_count
+FieldNames= ai_cost_value
+FieldNames= ai_cost_currency
+FieldNames= ai_route_rule_hits
+FieldNames= ai_cluster_key_names
+FieldNames= ai_auth_hit_quota_plans

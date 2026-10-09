@@ -29,10 +29,53 @@ spec:
       labels:
         app: bfe
     spec:
+      initContainers:
+        # Wait for the report database schema before bfe starts. log-reader's
+        # mod_log_mysql is fail-fast on db.Ping(): at Pod start the mysql
+        # Service endpoints/DNS may not exist yet, which kills log-reader
+        # (and silently stops all pb access log export). Waiting for BOTH
+        # report tables also implies the mysql-init Job has finished.
+        - name: wait-for-report-db
+          imagePullPolicy: IfNotPresent
+          image: ghcr.io/cc14514/mysql:8
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: mysql-root-password
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              host="mysql.ai-gateway-system.svc.cluster.local"
+              echo "Waiting for MySQL to be ready..."
+              until mysqladmin ping -h "$host" -uroot --password="$MYSQL_ROOT_PASSWORD" --silent; do
+                echo "MySQL is not ready yet, sleeping 5s..."
+                sleep 5
+              done
+              echo "Waiting for report tables (bfe_report) to be created..."
+              deadline=$(( $(date +%s) + 300 ))
+              while true; do
+                table_count=$(mysql --protocol=tcp -h "$host" -uroot --password="$MYSQL_ROOT_PASSWORD" -N -s \
+                  -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='bfe_report' AND table_name IN ('bfe_ai_request_log','bfe_ai_metrics_1m');" 2>/dev/null || true)
+                [ "$table_count" = "2" ] && break
+                if [ "$(date +%s)" -gt "$deadline" ]; then
+                  echo "ERROR: report tables not ready within 300s (found: ${table_count:-none} of 2)" >&2
+                  exit 1
+                fi
+                echo "Report tables not ready yet (found: ${table_count:-none} of 2), sleeping 5s..."
+                sleep 5
+              done
+              echo "Report database is ready!"
       containers:
       - name: bfe
         image: ghcr.io/bfenetworks/bfe:v1.8.1-debug # 替换为实际镜像
         imagePullPolicy: IfNotPresent
+        env:
+        - name: TZ
+          value: Asia/Shanghai
         ports:
         - name: http
           containerPort: 8080
@@ -70,6 +113,10 @@ spec:
         - name: log-reader-conf
           mountPath: /home/work/log-reader/conf/mod_kafka/kafka_config.data
           subPath: kafka_config.data
+          readOnly: false
+        - name: log-reader-conf
+          mountPath: /home/work/log-reader/conf/mod_log_mysql/mod_log_mysql.conf
+          subPath: mod_log_mysql.conf
           readOnly: false
         resources:
           requests:

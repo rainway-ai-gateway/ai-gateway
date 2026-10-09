@@ -10,8 +10,9 @@ This deployment demonstrates the interaction of several key components in the `a
 
 - **Data plane** (bfe with conf-agent + log-reader): traffic forwarding, access control, and access log collection
 - **Control plane** (ai-gateway-api): configuration/policy delivery API
+- **Endpoint Picker** (epp / ai-gateway-epp): multi-cluster endpoint discovery, health-aware routing via gRPC ext-proc protocol
 - **Base dependencies** (MySQL, Redis, Kafka): storage and messaging services
-- **Service discovery** (service-controller): discovers and syncs backend services
+- ~~**Service discovery** (service-controller): discovers and syncs backend services~~ — temporarily disabled, pending refactor
 - **Demo backend** (llm-d inference simulator): validates routing
 
 Optional observability stack (applied separately to `default` namespace):
@@ -25,6 +26,7 @@ Optional observability stack (applied separately to `default` namespace):
 | conf-agent | ai-gateway-api | `ai-gateway-api.ai-gateway-system.svc.cluster.local:8183` |
 | ai-gateway-api | MySQL | `mysql.ai-gateway-system.svc.cluster.local:3306` |
 | bfe (SessionCache) | Redis | `redis.ai-gateway-system.svc.cluster.local:6379` |
+| bfe (bal_gslb) | ai-gateway-epp | `epp-0.ai-gateway-epp.ai-gateway-system.svc.cluster.local:9002` |
 | log-reader | Kafka | `kafka.ai-gateway-system.svc.cluster.local:9092` |
 | Doris Routine Load | Kafka | `kafka.ai-gateway-system.svc.cluster.local:9092` |
 | Grafana | Doris FE | `doris-fe.default.svc.cluster.local:9030` |
@@ -39,12 +41,13 @@ Optional observability stack (applied separately to `default` namespace):
 | `kustomization.yaml` | Kustomize resource aggregation and image overrides |
 | `bfe-configmap.yaml` | BFE config (bfe.conf, conf-agent.toml, log-reader config) |
 | `bfe-deploy.yaml` | BFE data plane Deployment (bfe + conf-agent + log-reader in single container) |
+| `ai-gateway-epp-deploy.yaml` | EPP StatefulSet (2 replicas) + headless Service + TLS ConfigMap |
 | `ai-gateway-configmap.yaml` | AI Gateway API configuration (DB/Redis, auth) |
 | `ai-gateway-deploy.yaml` | AI Gateway API Deployment and Service |
 | `mysql-deploy.yaml` | MySQL (Deployment, Service, init ConfigMap, init Job) |
 | `redis-deploy.yaml` | Redis Deployment and Service |
 | `kafka-deploy.yaml` | Kafka (StatefulSet, KRaft single-node, Service) |
-| `service-controller-deploy.yaml` | Service discovery controller |
+| `service-controller-deploy.yaml` | Service discovery controller (commented out in `kustomization.yaml` — pending refactor) |
 | `llm-d-inference-sim-deploy.yaml` | Demo backend inference simulator (apply separately) |
 | `doris.yaml` | Doris FE + BE + init Job (apply separately, optional) |
 | `grafana.yaml` | Grafana + pre-provisioned dashboard (apply separately, optional) |
@@ -66,7 +69,7 @@ images:
   - name: ghcr.io/bfenetworks/bfe
     newName: ghcr.io/your-org/bfe
     newTag: v1.8.4
-  - name: ghcr.io/yf-networks/ai-gateway-api
+  - name: ghcr.io/rainway-ai-gateway/ai-gateway-api
     newName: ghcr.io/your-org/ai-gateway-api
     newTag: v0.0.6
   - name: ghcr.io/bfenetworks/service-controller
@@ -80,7 +83,7 @@ images:
 kubectl apply -k .
 ```
 
-Deploys: bfe (with conf-agent + log-reader), ai-gateway-api (with Dashboard), mysql, redis, kafka, service-controller.
+Deploys: bfe (with conf-agent + log-reader), ai-gateway-epp, ai-gateway-api (with Dashboard), mysql, redis, kafka. Service-controller is commented out in `kustomization.yaml` (pending refactor).
 
 ### 3. Deploy Test Service (Optional)
 
@@ -93,7 +96,10 @@ kubectl apply -f deploy/llm-d-inference-sim-deploy.yaml
 ### 4. Deploy Observability Stack (Optional)
 
 ```bash
+kubectl apply -f deploy/doris-configmap.yaml
 kubectl apply -f deploy/doris.yaml
+
+kubectl apply -f deploy/grafana-configmap.yaml
 kubectl apply -f deploy/grafana.yaml
 ```
 
