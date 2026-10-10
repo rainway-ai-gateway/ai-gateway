@@ -1,9 +1,9 @@
 version: v0.7.0.1
 components:
   bfe:
-    version: v1.8.8
+    version: v1.8.8.2
     source: image
-    image: ghcr.io/rainway-ai-gateway/bfe:v1.8.8
+    image: ghcr.io/rainway-ai-gateway/bfe:v1.8.8.2
     provides:
       - bfe
       - conf-agent
