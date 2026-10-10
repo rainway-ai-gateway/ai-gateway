@@ -42,7 +42,7 @@ resources:
 images:
   - name: ghcr.io/bfenetworks/bfe
     newName: ghcr.nju.edu.cn/rainway-ai-gateway/bfe
-    newTag: v1.8.8
+    newTag: v1.8.8.2
 
   - name: ghcr.io/rainway-ai-gateway/ai-gateway-api
     newName: ghcr.nju.edu.cn/rainway-ai-gateway/ai-gateway-api
