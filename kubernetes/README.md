@@ -147,7 +147,7 @@ The PVC is NOT included in `kustomization.yaml`, so `kubectl delete -k .` will n
 
 **Option B — External MySQL**:
 
-1. Run `db_ddl.sql` on your external MySQL instance
+1. Run `conf/db/api_db_ddl_mysql.sql` and `conf/db/report_db_ddl_mysql.sql` on your external MySQL instance (see `conf/db/README.md`)
 2. Update database connection in `deploy/ai-gateway-configmap.yaml`
 3. Comment out `mysql-deploy.yaml` in `kustomization.yaml`
 

@@ -38,6 +38,9 @@ CREATE TABLE bfe_ai_metrics_1m (
     ai_auth_reject_quota_plans_slot3 VARCHAR(128) COMMENT '被拒绝配额计划槽位3',
     ai_auth_reject_quota_plans_slot4 VARCHAR(128) COMMENT '被拒绝配额计划槽位4',
     ai_auth_reject_quota_plans_slot5 VARCHAR(128) COMMENT '被拒绝配额计划槽位5',
+    ai_cache_status    VARCHAR(16)     COMMENT '缓存状态（hit/miss/skip，空=未启用）',
+    mirror_hit         TINYINT         COMMENT '镜像命中（0/1）',
+    ai_intent_answer   VARCHAR(64)     COMMENT '意图答案（含 unknown，空=未分类）',
 
     -- 聚合指标（SUM）
     request_count      BIGINT   SUM    COMMENT '请求数',
@@ -75,9 +78,10 @@ AGGREGATE KEY(ts_min, hostid, ai_apikey_id, ai_requested_model, ai_target_model,
               ai_auth_reject_reason,
               ai_auth_reject_quota_plans_slot1, ai_auth_reject_quota_plans_slot2,
               ai_auth_reject_quota_plans_slot3, ai_auth_reject_quota_plans_slot4,
-              ai_auth_reject_quota_plans_slot5)
+              ai_auth_reject_quota_plans_slot5,
+              ai_cache_status, mirror_hit, ai_intent_answer)
 PARTITION BY RANGE(ts_min) (
-    PARTITION p_init VALUES LESS THAN ('2026-08-29')
+    PARTITION p_init VALUES LESS THAN ('2026-10-19')
 )
 DISTRIBUTED BY HASH(ai_apikey_id) BUCKETS 16
 PROPERTIES (

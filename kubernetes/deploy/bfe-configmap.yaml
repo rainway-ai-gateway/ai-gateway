@@ -115,9 +115,17 @@ data:
 
     Modules = mod_unified_waf
     Modules = mod_ai_token_auth
+    Modules = mod_ai_cache
     Modules = mod_ai_route
+    Modules = mod_ai_intent
     Modules = mod_body_process
     Modules = mod_ai_rate_limit
+    # OpenAI Batch API (files/batches) passthrough support; requires
+    # conf/mod_ai_batch/ and (optionally) a Redis in mod_ai_batch.conf
+    Modules = mod_ai_batch
+    # compresses oversized chat context before forwarding; default rule is off
+    Modules = mod_ai_context
+    Modules = mod_traffic_mirror
 
     Modules = mod_access_pb3
     Modules = mod_session_sticky
@@ -223,6 +231,38 @@ data:
     # session ticket key
     SessionTicketKeyFile = tls_conf/session_ticket_key.data
 
+    [AIKeyAffinity]
+    # AI key session affinity: server-owned Redis for session->key binding and
+    # key penalty state. Disabled by default; when disabled, affinity silently
+    # does not apply (fail-open) even if a cluster sets SessionAffinity=true.
+    Disabled = true
+
+    # bns name (or weighted bns list) of redis servers, resolved via NameConf
+    #ServiceConf = "redis_bns"
+
+    # connection params (ms)
+    #ConnectTimeoutMs = 1000
+    #ReadTimeoutMs = 1000
+    #WriteTimeoutMs = 1000
+
+    # max idle connections in connection pool
+    #MaxIdle = 10
+
+    # max active connections in pool (0 means no connection num limit)
+    #MaxActive = 20
+
+    # redis password, ignore if not set
+    #Password = ""
+
+    [Security]
+    # keyring file for decrypting enc$v1$ ciphertext fields in control-plane
+    # distributed config files (token_rule.data Tokens outer keys /
+    # cluster_conf.data AIConf.Keys[].Key). Empty by default: if a loaded file
+    # contains enc$v1$ ciphertext fields, the load fails and the previously
+    # effective config is kept (startup fails fast). The key material file must
+    # be 0600 and stored outside the conf directory. Keyring content is re-read
+    # on every data-file load (rotation hot reload).
+    #KeyFile = /etc/ai-gateway/keys/export.keys
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -311,13 +351,49 @@ data:
     ConfAPI         = "/inner-api/v1/configs/ai-route"
     ConfFileName    = "ai_route.data"
 
-    # # reloader for tls_conf files, detail see https://www.bfe-networks.net/en_us/configuration/tls_conf/server_cert_conf.data/
-    [Reloaders.tls_conf]
-    CopyFiles      = ["client_ca", "client_crl", "server_cert_conf.data", "session_ticket_key.data", "tls_rule_conf.data"]
-    [[Reloaders.tls_conf.ExtraFileTasks]]
-    ConfAPI             = "/inner-api/v1/configs/protocol/server_cert_conf"
-    ConfFileName        = "server_cert_conf.data"
-    ExtraFileJSONPaths  = ["$.Config.CertConf.*.ServerCertFile", "$.Config.CertConf.*.ServerKeyFile"]
+        # reloader for mod_ai_cache
+    [Reloaders.mod_ai_cache]
+    BFEReloadAPI    = "/reload/mod_ai_cache"
+    ReloadFile      = "ai_cache.data"
+    CopyFiles       = ["ai_cache.data", "mod_ai_cache.conf"]
+    [[Reloaders.mod_ai_cache.NormalFileTasks]]
+    ConfAPI         = "/inner-api/v1/configs/ai-cache-rule"
+    ConfFileName    = "ai_cache.data"
+
+    # reloader for mod_traffic_mirror
+    [Reloaders.mod_traffic_mirror]
+    BFEReloadAPI    = "/reload/mod_traffic_mirror"
+    ReloadFile      = "mirror_rule.data"
+    CopyFiles       = ["mirror_rule.data", "mod_traffic_mirror.conf"]
+    [[Reloaders.mod_traffic_mirror.NormalFileTasks]]
+    ConfAPI         = "/inner-api/v1/configs/traffic-mirror-rule"
+    ConfFileName    = "mirror_rule.data"
+
+    # reloader for mod_ai_intent
+    [Reloaders.mod_ai_intent]
+    BFEReloadAPI    = "/reload/mod_ai_intent"
+    ReloadFile      = "intent_questions.data"
+    CopyFiles       = ["intent_questions.data", "mod_ai_intent.conf"]
+    [[Reloaders.mod_ai_intent.NormalFileTasks]]
+    ConfAPI         = "/inner-api/v1/configs/mod-ai-intent"
+    ConfFileName    = "intent_questions.data"
+
+    # reloader for mod_ai_context
+    [Reloaders.mod_ai_context]
+    BFEReloadAPI    = "/reload/mod_ai_context"
+    ReloadFile      = "context_rule.data"
+    CopyFiles       = ["context_rule.data", "mod_ai_context.conf"]
+    [[Reloaders.mod_ai_context.NormalFileTasks]]
+    ConfAPI         = "/inner-api/v1/configs/ai-context-rule"
+    ConfFileName    = "context_rule.data"
+
+# # reloader for tls_conf files, detail see https://www.bfe-networks.net/en_us/configuration/tls_conf/server_cert_conf.data/
+    # [Reloaders.tls_conf]
+    # CopyFiles      = ["client_ca", "client_crl", "server_cert_conf.data", "session_ticket_key.data", "tls_rule_conf.data"]
+    # [[Reloaders.tls_conf.ExtraFileTasks]]
+    # ConfAPI             = "/inner-api/v1/configs/protocol/server_cert_conf"
+    # ConfFileName        = "server_cert_conf.data"
+    # ExtraFileJSONPaths  = ["$.Config.CertConf.*.ServerCertFile", "$.Config.CertConf.*.ServerKeyFile"]
 
 ---
 apiVersion: v1
@@ -383,9 +459,23 @@ data:
     User = root
     Password = bfe123456
 
-    # target database and table (table created by ai-gateway-api repo DDL, see db_ddl_report_mysql.sql)
+    # target database and table (table created by conf/db/report_db_ddl_mysql.sql)
     DBName = bfe_report
     Table = bfe_ai_request_log
+
+    # single connect/ping timeout in milliseconds
+    # (bounds one attempt; guards against OS-level TCP timeouts on blackholed IPs)
+    ConnectTimeoutMs = 3000
+
+    # interval between connect retries in milliseconds
+    # (when mysql is unreachable at startup or lost at runtime, log-reader stays up
+    #  and retries in background)
+    ConnectRetryIntervalMs = 3000
+
+    # UP-period health ping interval in milliseconds (default 0 = disabled)
+    # (when > 0, a failed ping marks the connection down and triggers reconnect;
+    #  enables earlier detection of half-open connections)
+    HealthPingIntervalMs = 0
 
     [Writer]
     # record buffer queue size (records)
@@ -399,6 +489,10 @@ data:
 
     # max retries on write failure (backoff 200ms/400ms/800ms)
     MaxRetries = 3
+
+    # single batch transaction timeout in milliseconds (ExecContext deadline and
+    # driver writeTimeout; guards the write path against hangs on network partition)
+    BatchTimeoutMs = 30000
 
     # connection pool
     MaxOpenConns = 10

@@ -157,7 +157,7 @@ data:
     # ---------------------------------
     # Report Query Config (optional)
     # see design-docs/modifications/2026-09-15-report-query-api and
-    # db_ddl_report_mysql.sql. When [Report] is absent the report module is
+    # conf/db/report_db_ddl_mysql.sql. When [Report] is absent the report module is
     # not assembled and /open-api/v1/report/* stay 404.
     [Databases.report_db]
     Driver              = "mysql"

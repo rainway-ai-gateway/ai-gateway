@@ -112,6 +112,11 @@ Doris FE Web：`http://localhost:8030`
 
 > Log Reader 内置于 AI Gateway 镜像中，与 BFE、EPP、Conf Agent 并行运行。它读取 `pb_access3.log` 并发送至 Kafka，配置位于 `conf/log-reader/`。若 Kafka 不可用，Log Reader 静默重试，不影响流量路由。
 
+### 数据库
+
+两个库（`open_bfe` 与 `bfe_report`）都会在首次启动时自动初始化，无需手工执行任何脚本。全部 schema 文件位于
+[`conf/db/`](./conf/db/README.md)，该目录也记录了**存量部署如何升级数据库**（`*_upgrade_to_*.sql` 不会被自动执行）。
+
 ### 手动部署（自行准备 MySQL / Redis）
 
 1. **修改配置** — 编辑 `conf/` 文件，填入实际地址：

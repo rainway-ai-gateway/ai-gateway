@@ -25,7 +25,9 @@ data:
         ai_apikey_id            VARCHAR(256)    COMMENT 'API Key ID',
         ai_requested_model      VARCHAR(128)    COMMENT '请求模型名',
     
-        logid                   BIGINT          COMMENT 'BFE 请求唯一标识',
+        -- logid：逐请求唯一标识（bfe#1417 起由 BFE 保证非 0）；作为 UNIQUE KEY 成员必须 NOT NULL
+        -- （Doris KEY 列不允许 NULL；Routine Load 映射始终提供该列）
+        logid                   BIGINT NOT NULL COMMENT 'BFE 请求唯一标识（逐请求唯一、非 0；bfe#1417）',
         product                 VARCHAR(64)     COMMENT '产品标识',
         log_tag                 VARCHAR(64)     COMMENT '日志标签：req_<product> / req_err_<product>',
     
@@ -140,13 +142,32 @@ data:
             rate_limit_type      : VARCHAR(32),
             rule_names           : ARRAY<VARCHAR(128)>
         >>                                      COMMENT '限流命中列表',
+        -- 限流首个命中打平列（Doris 3.0 不支持 ARRAY<STRUCT> 元素字段解引用，由 Routine Load 在导入时打平）
+        rate_limit_policy_id    VARCHAR(128)    COMMENT '限流策略 ID（取首个命中，打平列）',
+        rate_limit_type         VARCHAR(32)     COMMENT '限流类型（取首个命中，打平列）',
+        rate_limit_rule_name    VARCHAR(128)    COMMENT '限流规则名（取首条规则，打平列）',
         ai_auth_reject_reason   VARCHAR(256)    COMMENT '认证拒绝原因',
         ai_auth_reject_quota_plans ARRAY<VARCHAR(128)> COMMENT '被拒绝的配额计划',
-        ai_auth_hit_quota_plans ARRAY<VARCHAR(128)> COMMENT '成功请求时命中的配额计划'
+        ai_auth_hit_quota_plans ARRAY<VARCHAR(128)> COMMENT '成功请求时命中的配额计划',
+    
+        -- AI 可观测 — 缓存/镜像/意图（v0.8 报表二期）
+        ai_cache_status         VARCHAR(16)     COMMENT '缓存状态：hit/miss/skip，空=未启用',
+        mirror_hit              BOOLEAN         COMMENT '镜像是否命中',
+        mirror_cluster          VARCHAR(128)    COMMENT '镜像集群',
+        ai_intent_question      VARCHAR(64)     COMMENT '意图问题',
+        ai_intent_answer        VARCHAR(64)     COMMENT '意图答案（含 unknown）',
+        ai_intent_confidence    DOUBLE          COMMENT '意图置信度（NULL=未分类）',
+        ai_intent_source        VARCHAR(32)     COMMENT '意图来源：explicit_header/classifier/cache',
+        ai_intent_latency_us    BIGINT          COMMENT '意图决策耗时（微秒，NULL=未分类）',
+        ai_intent_cache_hit     BOOLEAN         COMMENT '意图缓存命中（NULL=未分类）',
+        ai_intent_questions_version VARCHAR(32) COMMENT '意图问题集版本'
     )
-    UNIQUE KEY(hostid, log_time, ai_apikey_id, ai_requested_model)
+    -- 唯一键含请求级判别列 logid（bfe#1417）：log_time 为秒级，缺 logid 时同秒同 Key 同模型的并发
+    -- 请求会互相合并、只留 1 行（丢率 (n-1)/n，生产窗口实测 13.5%）；logid 恰为第 5 列，键仍是
+    -- 列前缀（Doris 对 KEY 列的硬约束）。存量升级脚本：sqls/upgrade/2026-10-13-issue-1417-detail-unique-key-logid/
+    UNIQUE KEY(hostid, log_time, ai_apikey_id, ai_requested_model, logid)
     PARTITION BY RANGE(log_time) (
-        PARTITION p_init VALUES LESS THAN ('2026-08-29')
+        PARTITION p_init VALUES LESS THAN ('2026-10-19')
     )
     DISTRIBUTED BY HASH(ai_apikey_id) BUCKETS 32
     PROPERTIES (
@@ -166,7 +187,9 @@ data:
     COLUMNS(
         logid,
         timestamp,
-        log_time         = FROM_UNIXTIME(timestamp),
+        -- 存储 UTC 墙钟（与 MySQL 链路 log-reader 写入口径一致）：FROM_UNIXTIME 按会话时区
+        -- 解释 epoch，此处减去会话相对 UTC 的偏移，保证任何 FE 时区下结果一致。
+        log_time         = DATE_SUB(FROM_UNIXTIME(timestamp), INTERVAL TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) SECOND),
         product,
         log_tag,
         hostid,
@@ -252,9 +275,22 @@ data:
         ai_route_rule_hits,
         ai_cluster_key_names,
         ai_rate_limit_hits,
+        rate_limit_policy_id = json_unquote(json_extract(ai_rate_limit_hits, '$[0].rate_limit_policy_id')),
+        rate_limit_type      = json_unquote(json_extract(ai_rate_limit_hits, '$[0].rate_limit_type')),
+        rate_limit_rule_name = json_unquote(json_extract(ai_rate_limit_hits, '$[0].rule_names[0]')),
         ai_auth_reject_reason,
         ai_auth_reject_quota_plans,
-        ai_auth_hit_quota_plans
+        ai_auth_hit_quota_plans,
+        ai_cache_status,
+        mirror_hit,
+        mirror_cluster,
+        ai_intent_question,
+        ai_intent_answer,
+        ai_intent_confidence,
+        ai_intent_source,
+        ai_intent_latency_us,
+        ai_intent_cache_hit,
+        ai_intent_questions_version
     )
     PROPERTIES (
         "desired_concurrent_number" = "3",
@@ -266,6 +302,10 @@ data:
     FROM KAFKA (
         "kafka_broker_list" = "kafka.ai-gateway-system.svc.cluster.local:9092",
         "kafka_topic" = "bfe_ai_log",
+        -- 首次创建从分区起始位置消费（缺省 OFFSET_END/LATEST 会在 job 创建瞬间
+        -- 锁定末尾偏移，创建前已产生的日志消息被永久跳过；对日志入仓链路而言
+        -- 历史消息应全部加载）。
+        "property.kafka_default_offsets" = "OFFSET_BEGINNING",
         "property.group.id" = "doris_bfe_ai_log",
         "property.client.id" = "doris_bfe_ai_log"
     );
@@ -310,6 +350,9 @@ data:
         ai_auth_reject_quota_plans_slot3 VARCHAR(128) COMMENT '被拒绝配额计划槽位3',
         ai_auth_reject_quota_plans_slot4 VARCHAR(128) COMMENT '被拒绝配额计划槽位4',
         ai_auth_reject_quota_plans_slot5 VARCHAR(128) COMMENT '被拒绝配额计划槽位5',
+        ai_cache_status    VARCHAR(16)     COMMENT '缓存状态（hit/miss/skip，空=未启用）',
+        mirror_hit         TINYINT         COMMENT '镜像命中（0/1）',
+        ai_intent_answer   VARCHAR(64)     COMMENT '意图答案（含 unknown，空=未分类）',
     
         -- 聚合指标（SUM）
         request_count      BIGINT   SUM    COMMENT '请求数',
@@ -347,9 +390,10 @@ data:
                   ai_auth_reject_reason,
                   ai_auth_reject_quota_plans_slot1, ai_auth_reject_quota_plans_slot2,
                   ai_auth_reject_quota_plans_slot3, ai_auth_reject_quota_plans_slot4,
-                  ai_auth_reject_quota_plans_slot5)
+                  ai_auth_reject_quota_plans_slot5,
+                  ai_cache_status, mirror_hit, ai_intent_answer)
     PARTITION BY RANGE(ts_min) (
-        PARTITION p_init VALUES LESS THAN ('2026-08-29')
+        PARTITION p_init VALUES LESS THAN ('2026-10-19')
     )
     DISTRIBUTED BY HASH(ai_apikey_id) BUCKETS 16
     PROPERTIES (
@@ -398,15 +442,18 @@ data:
         COALESCE(level4, '')                 AS level4,
         COALESCE(level5Name, '')             AS level5Name,
         COALESCE(level5, '')                 AS level5,
-        COALESCE(ELEMENT_AT(ai_rate_limit_hits, 1).rate_limit_policy_id, '') AS rate_limit_policy_id,
-        COALESCE(ELEMENT_AT(ai_rate_limit_hits, 1).rate_limit_type, '')      AS rate_limit_type,
-        COALESCE(ELEMENT_AT(ELEMENT_AT(ai_rate_limit_hits, 1).rule_names, 1), '') AS rate_limit_rule_name,
+        COALESCE(rate_limit_policy_id, '')   AS rate_limit_policy_id,
+        COALESCE(rate_limit_type, '')        AS rate_limit_type,
+        COALESCE(rate_limit_rule_name, '')   AS rate_limit_rule_name,
         COALESCE(ai_auth_reject_reason, '')  AS ai_auth_reject_reason,
         COALESCE(ELEMENT_AT(ai_auth_reject_quota_plans, 1), '') AS ai_auth_reject_quota_plans_slot1,
         COALESCE(ELEMENT_AT(ai_auth_reject_quota_plans, 2), '') AS ai_auth_reject_quota_plans_slot2,
         COALESCE(ELEMENT_AT(ai_auth_reject_quota_plans, 3), '') AS ai_auth_reject_quota_plans_slot3,
         COALESCE(ELEMENT_AT(ai_auth_reject_quota_plans, 4), '') AS ai_auth_reject_quota_plans_slot4,
         COALESCE(ELEMENT_AT(ai_auth_reject_quota_plans, 5), '') AS ai_auth_reject_quota_plans_slot5,
+        COALESCE(ai_cache_status, '')        AS ai_cache_status,
+        COALESCE(mirror_hit, 0)              AS mirror_hit,
+        COALESCE(ai_intent_answer, '')       AS ai_intent_answer,
         -- metrics
         COUNT(1)                             AS request_count,
         SUM(CASE WHEN err_code != '' AND err_code IS NOT NULL THEN 1 ELSE 0 END) AS error_count,
@@ -433,8 +480,10 @@ data:
         SUM(COALESCE(ai_audio_output_tokens, 0)) AS ai_audio_output_tokens,
         SUM(COALESCE(ai_image_count, 0))         AS ai_image_count
     FROM bfe_ai_request_log
-    WHERE log_time >= DATE_TRUNC(NOW(), 'minute') - INTERVAL 1 MINUTE
-      AND log_time <  DATE_TRUNC(NOW(), 'minute')
+    -- 窗口按 UTC 计算：log_time 存的是 UTC 墙钟（见 bfe_ai_log_load_routine.sql），
+    -- NOW() 随会话时区变化，UTC_TIMESTAMP() 与时区无关。
+    WHERE log_time >= DATE_TRUNC(UTC_TIMESTAMP(), 'minute') - INTERVAL 1 MINUTE
+      AND log_time <  DATE_TRUNC(UTC_TIMESTAMP(), 'minute')
     GROUP BY ts_min, hostid, ai_apikey_id, ai_requested_model, ai_target_model, ai_stream,
              product, cluster, sub_cluster, backend_info, method, res_status_code,
              err_code, header_host, ai_provider, ai_protocol, ai_mode, ai_cost_currency,
@@ -445,4 +494,5 @@ data:
              ai_auth_reject_reason,
              ai_auth_reject_quota_plans_slot1, ai_auth_reject_quota_plans_slot2,
              ai_auth_reject_quota_plans_slot3, ai_auth_reject_quota_plans_slot4,
-             ai_auth_reject_quota_plans_slot5;
+             ai_auth_reject_quota_plans_slot5,
+             ai_cache_status, mirror_hit, ai_intent_answer;

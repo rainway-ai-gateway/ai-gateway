@@ -558,7 +558,7 @@ spec:
 - 适合演示和开发环境，**不推荐生产使用**
 
 **使用外部数据库（推荐生产环境）**:
-- 如果您有独立的 MySQL 资源，并已执行了[db初始化脚本](./db_ddl.sql)，需要修改 AI Gateway API 的数据库配置
+- 如果您有独立的 MySQL 资源，并已执行了 [db 初始化脚本](../conf/db/api_db_ddl_mysql.sql)、[报表库初始化脚本](../conf/db/report_db_ddl_mysql.sql)，需要修改 AI Gateway API 的数据库配置
 
 #### 4.1 调整 ai-gateway-configmap.yaml 配置
 

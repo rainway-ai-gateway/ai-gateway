@@ -112,6 +112,14 @@ Doris FE Web: `http://localhost:8030`
 
 > The Log Reader is built into the AI Gateway image and runs as another process alongside BFE, EPP, and Conf Agent. It reads `pb_access3.log` and sends to Kafka. Its config is at `conf/log-reader/` and mounted into the container. If Kafka is unavailable, Log Reader retries silently without affecting traffic routing.
 
+### Database
+
+Both databases (`open_bfe` and `bfe_report`) initialize themselves on first
+start — nothing to run by hand. All schema files live in
+[`conf/db/`](./conf/db/README.md), which also documents how to upgrade an
+existing deployment (the `*_upgrade_to_*.sql` files are never executed
+automatically).
+
 ### Manual Deployment (External MySQL / Redis)
 
 If you have your own MySQL and Redis, configure and start the container manually:

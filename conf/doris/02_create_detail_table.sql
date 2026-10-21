@@ -6,7 +6,9 @@ CREATE TABLE bfe_ai_request_log (
     ai_apikey_id            VARCHAR(256)    COMMENT 'API Key ID',
     ai_requested_model      VARCHAR(128)    COMMENT '请求模型名',
 
-    logid                   BIGINT          COMMENT 'BFE 请求唯一标识',
+    -- logid：逐请求唯一标识（bfe#1417 起由 BFE 保证非 0）；作为 UNIQUE KEY 成员必须 NOT NULL
+    -- （Doris KEY 列不允许 NULL；Routine Load 映射始终提供该列）
+    logid                   BIGINT NOT NULL COMMENT 'BFE 请求唯一标识（逐请求唯一、非 0；bfe#1417）',
     product                 VARCHAR(64)     COMMENT '产品标识',
     log_tag                 VARCHAR(64)     COMMENT '日志标签：req_<product> / req_err_<product>',
 
@@ -121,13 +123,32 @@ CREATE TABLE bfe_ai_request_log (
         rate_limit_type      : VARCHAR(32),
         rule_names           : ARRAY<VARCHAR(128)>
     >>                                      COMMENT '限流命中列表',
+    -- 限流首个命中打平列（Doris 3.0 不支持 ARRAY<STRUCT> 元素字段解引用，由 Routine Load 在导入时打平）
+    rate_limit_policy_id    VARCHAR(128)    COMMENT '限流策略 ID（取首个命中，打平列）',
+    rate_limit_type         VARCHAR(32)     COMMENT '限流类型（取首个命中，打平列）',
+    rate_limit_rule_name    VARCHAR(128)    COMMENT '限流规则名（取首条规则，打平列）',
     ai_auth_reject_reason   VARCHAR(256)    COMMENT '认证拒绝原因',
     ai_auth_reject_quota_plans ARRAY<VARCHAR(128)> COMMENT '被拒绝的配额计划',
-    ai_auth_hit_quota_plans ARRAY<VARCHAR(128)> COMMENT '成功请求时命中的配额计划'
+    ai_auth_hit_quota_plans ARRAY<VARCHAR(128)> COMMENT '成功请求时命中的配额计划',
+
+    -- AI 可观测 — 缓存/镜像/意图（v0.8 报表二期）
+    ai_cache_status         VARCHAR(16)     COMMENT '缓存状态：hit/miss/skip，空=未启用',
+    mirror_hit              BOOLEAN         COMMENT '镜像是否命中',
+    mirror_cluster          VARCHAR(128)    COMMENT '镜像集群',
+    ai_intent_question      VARCHAR(64)     COMMENT '意图问题',
+    ai_intent_answer        VARCHAR(64)     COMMENT '意图答案（含 unknown）',
+    ai_intent_confidence    DOUBLE          COMMENT '意图置信度（NULL=未分类）',
+    ai_intent_source        VARCHAR(32)     COMMENT '意图来源：explicit_header/classifier/cache',
+    ai_intent_latency_us    BIGINT          COMMENT '意图决策耗时（微秒，NULL=未分类）',
+    ai_intent_cache_hit     BOOLEAN         COMMENT '意图缓存命中（NULL=未分类）',
+    ai_intent_questions_version VARCHAR(32) COMMENT '意图问题集版本'
 )
-UNIQUE KEY(hostid, log_time, ai_apikey_id, ai_requested_model)
+-- 唯一键含请求级判别列 logid（bfe#1417）：log_time 为秒级，缺 logid 时同秒同 Key 同模型的并发
+-- 请求会互相合并、只留 1 行（丢率 (n-1)/n，生产窗口实测 13.5%）；logid 恰为第 5 列，键仍是
+-- 列前缀（Doris 对 KEY 列的硬约束）。存量升级脚本：sqls/upgrade/2026-10-13-issue-1417-detail-unique-key-logid/
+UNIQUE KEY(hostid, log_time, ai_apikey_id, ai_requested_model, logid)
 PARTITION BY RANGE(log_time) (
-    PARTITION p_init VALUES LESS THAN ('2026-08-29')
+    PARTITION p_init VALUES LESS THAN ('2026-10-19')
 )
 DISTRIBUTED BY HASH(ai_apikey_id) BUCKETS 32
 PROPERTIES (

@@ -147,7 +147,7 @@ PVC 未加入 `kustomization.yaml`，因此 `kubectl delete -k .` 不会删除�
 
 **方案 B — 外部 MySQL**：
 
-1. 在外部 MySQL 实例上执行 `db_ddl.sql`
+1. 在外部 MySQL 实例上执行 `conf/db/api_db_ddl_mysql.sql` 与 `conf/db/report_db_ddl_mysql.sql`（见 `conf/db/README.md`）
 2. 修改 `deploy/ai-gateway-configmap.yaml` 中的数据库连接信息
 3. 在 `kustomization.yaml` 中注释掉 `mysql-deploy.yaml`
 

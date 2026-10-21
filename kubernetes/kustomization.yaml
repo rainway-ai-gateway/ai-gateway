@@ -27,7 +27,7 @@ resources:
   - deploy/kafka-deploy.yaml
   - deploy/mysql-deploy.yaml
   - deploy/redis-deploy.yaml
-  # - deploy/service-controller-deploy.yaml
+  - deploy/ai-gateway-controller-deploy.yaml
 
 # Centralized image override.
 #
@@ -42,18 +42,20 @@ resources:
 images:
   - name: ghcr.io/bfenetworks/bfe
     newName: ghcr.nju.edu.cn/rainway-ai-gateway/bfe
-    newTag: v1.8.8.2
+    newTag: v1.8.9-preview.1
 
   - name: ghcr.io/rainway-ai-gateway/ai-gateway-api
     newName: ghcr.nju.edu.cn/rainway-ai-gateway/ai-gateway-api
-    newTag: v0.0.10.1
+    newTag: v0.0.11-preview.1
 
   - name: ghcr.io/rainway-ai-gateway/ai-gateway-epp
     newName: ghcr.nju.edu.cn/rainway-ai-gateway/ai-gateway-epp
-    newTag: v0.0.2
-  # - name: ghcr.io/bfenetworks/service-controller
-  #   newName: ghcr.nju.edu.cn/bfenetworks/service-controller
-  #   newTag: v1.0.0
+    newTag: v0.3.0-preview.1
+
+  # Replaces the retired bfe-service-controller (ghcr.io/bfenetworks/service-controller).
+  - name: ghcr.io/rainway-ai-gateway/ai-gateway-controller
+    newName: ghcr.nju.edu.cn/rainway-ai-gateway/ai-gateway-controller
+    newTag: v1.1.0-preview.1
 
   - name: ghcr.io/cc14514/mysql
     newName: ghcr.nju.edu.cn/cc14514/mysql

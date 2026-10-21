@@ -27,7 +27,7 @@ endif
 IMAGE_REMOTE := $(if $(REGISTRY),$(REGISTRY)/$(IMAGE_NAME):$(VERSION_TAG),)
 IMAGE_LATEST_REMOTE := $(if $(REGISTRY),$(REGISTRY)/$(IMAGE_NAME):latest,)
 
-.PHONY: sync-grafana sync-doris sync docker-standalone docker-standalone-push
+.PHONY: sync-grafana sync-doris sync check-db-ddl docker-standalone docker-standalone-push
 
 sync-grafana:
 	@echo "Syncing Grafana config from ai-gateway-observability $(OBS_VERSION)..."
@@ -38,6 +38,12 @@ sync-doris:
 	@bash scripts/sync-doris.sh $(OBS_VERSION)
 
 sync: sync-grafana sync-doris
+
+# The two MySQL DDL copies (conf/db/ and the mysql-init ConfigMap) are generated
+# from ai-gateway-api/db_ddl.sql. Run this before every release; a hand-edited
+# copy silently loses seed rows and trailing tables.
+check-db-ddl:
+	@python3 scripts/gen-db-ddl.py --check
 
 docker-standalone:
 	@echo "Building AI Gateway standalone image..."

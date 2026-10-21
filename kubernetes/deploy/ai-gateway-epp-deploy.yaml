@@ -73,7 +73,11 @@ spec:
           value: http://ai-gateway-api.ai-gateway-system.svc.cluster.local:8183/inner-api/v1
         - name: AI_GATEWAY_API_TOKEN
           value: c5QFb-MrlKktJbOid2M3
-        - name: AI_GATEWAY_EPP_INSTANCE_ID
+        # EPP v0.3.0+ identifies a process by its group, not by an instance id.
+        # The StatefulSet pod name (epp-0 / epp-1) doubles as the group name so
+        # each pod belongs to exactly one group - the v0.0.11 control plane
+        # rejects groups with more than one instance.
+        - name: AI_GATEWAY_EPP_GROUP
           valueFrom:
             fieldRef:
               fieldPath: metadata.name

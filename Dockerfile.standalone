@@ -60,8 +60,10 @@ COPY --from=epp /home/work/epp/epp /home/work/epp/epp
 COPY --from=api /home/work/api-server/api-server /home/work/api-server/api-server
 COPY --from=api /home/work/api-server/conf /home/work/api-server/conf
 COPY --from=api /home/work/api-server/static /home/work/api-server/static
-COPY api_db_ddl.sql /home/work/db_ddl.sql
-COPY db_ddl_report_mysql.sql /home/work/db_ddl_report_mysql.sql
+# Full (fresh-install) schemas only. Upgrade scripts under conf/db/*_upgrade_to_*.sql
+# are never baked and never executed by the entrypoint: schema upgrades are a
+# documented manual step (see conf/db/README.md).
+COPY conf/db/api_db_ddl_mysql.sql conf/db/report_db_ddl_mysql.sql /home/work/db/
 
 RUN set -ex; \
     if [ -f /home/work/bfe/conf/server_data_conf/name_conf.data ] && [ ! -L /home/work/bfe/conf/server_data_conf/name_conf.data ]; then \
@@ -151,13 +153,50 @@ CopyFiles       = ["ai_route.data", "mod_ai_route.conf"]
 ConfAPI         = "/inner-api/v1/configs/ai-route"
 ConfFileName    = "ai_route.data"
 
+
+# reloader for mod_ai_cache
+[Reloaders.mod_ai_cache]
+BFEReloadAPI    = "/reload/mod_ai_cache"
+ReloadFile      = "ai_cache.data"
+CopyFiles       = ["ai_cache.data", "mod_ai_cache.conf"]
+[[Reloaders.mod_ai_cache.NormalFileTasks]]
+ConfAPI         = "/inner-api/v1/configs/ai-cache-rule"
+ConfFileName    = "ai_cache.data"
+
+# reloader for mod_traffic_mirror
+[Reloaders.mod_traffic_mirror]
+BFEReloadAPI    = "/reload/mod_traffic_mirror"
+ReloadFile      = "mirror_rule.data"
+CopyFiles       = ["mirror_rule.data", "mod_traffic_mirror.conf"]
+[[Reloaders.mod_traffic_mirror.NormalFileTasks]]
+ConfAPI         = "/inner-api/v1/configs/traffic-mirror-rule"
+ConfFileName    = "mirror_rule.data"
+
+# reloader for mod_ai_intent
+[Reloaders.mod_ai_intent]
+BFEReloadAPI    = "/reload/mod_ai_intent"
+ReloadFile      = "intent_questions.data"
+CopyFiles       = ["intent_questions.data", "mod_ai_intent.conf"]
+[[Reloaders.mod_ai_intent.NormalFileTasks]]
+ConfAPI         = "/inner-api/v1/configs/mod-ai-intent"
+ConfFileName    = "intent_questions.data"
+
+# reloader for mod_ai_context
+[Reloaders.mod_ai_context]
+BFEReloadAPI    = "/reload/mod_ai_context"
+ReloadFile      = "context_rule.data"
+CopyFiles       = ["context_rule.data", "mod_ai_context.conf"]
+[[Reloaders.mod_ai_context.NormalFileTasks]]
+ConfAPI         = "/inner-api/v1/configs/ai-context-rule"
+ConfFileName    = "context_rule.data"
+
 # # reloader for tls_conf files, detail see https://www.bfe-networks.net/en_us/configuration/tls_conf/server_cert_conf.data/
-[Reloaders.tls_conf]
-CopyFiles      = ["client_ca", "client_crl", "server_cert_conf.data", "session_ticket_key.data", "tls_rule_conf.data"]
-[[Reloaders.tls_conf.ExtraFileTasks]]
-ConfAPI             = "/inner-api/v1/configs/protocol/server_cert_conf"
-ConfFileName        = "server_cert_conf.data"
-ExtraFileJSONPaths  = ["$.Config.CertConf.*.ServerCertFile", "$.Config.CertConf.*.ServerKeyFile"]
+# [Reloaders.tls_conf]
+# CopyFiles      = ["client_ca", "client_crl", "server_cert_conf.data", "session_ticket_key.data", "tls_rule_conf.data"]
+# [[Reloaders.tls_conf.ExtraFileTasks]]
+# ConfAPI             = "/inner-api/v1/configs/protocol/server_cert_conf"
+# ConfFileName        = "server_cert_conf.data"
+# ExtraFileJSONPaths  = ["$.Config.CertConf.*.ServerCertFile", "$.Config.CertConf.*.ServerKeyFile"]
 
 EOF
 
@@ -214,11 +253,22 @@ TABLE_COUNT=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" -sN \
     -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name='users';" 2>/dev/null || echo "0")
 
 if [ "$TABLE_COUNT" = "0" ]; then
-    echo "[$(date +'%Y-%m-%d %H:%M:%S')] Database not initialized, running db_ddl.sql..."
-    mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" < /home/work/db_ddl.sql
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] Database not initialized, running api_db_ddl_mysql.sql..."
+    mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" < /home/work/db/api_db_ddl_mysql.sql
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] Database initialization complete"
 else
-    echo "[$(date +'%Y-%m-%d %H:%M:%S')] Database already initialized, skipping"
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] Database already initialized, checking schema version..."
+    # v0.8.0 requires the v0.0.11 schema. The DDL is not idempotent, so an
+    # existing database must be migrated by hand; refuse to start on the old
+    # schema instead of failing every write at runtime.
+    SCHEMA_COL=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" -sN \
+        -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='providers' AND column_name='instance_source';" 2>/dev/null || echo "0")
+    if [ "$SCHEMA_COL" != "1" ]; then
+        echo "[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: control-plane schema is older than v0.0.11 (providers.instance_source missing)." >&2
+        echo "  Apply conf/db/api_db_ddl_mysql_upgrade_to_0.0.11.sql (from the repository) to $DB_NAME, then restart." >&2
+        echo "  Upgrade procedure: conf/db/README.md (section: Upgrading an existing deployment)." >&2
+        exit 1
+    fi
 fi
 
 # Report database initialization (separate from control plane)
@@ -232,20 +282,28 @@ REPORT_TABLE_COUNT=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" -
     -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$REPORT_DB' AND table_name IN ('bfe_ai_request_log','bfe_ai_metrics_1m');" 2>/dev/null || echo "0")
 
 if [ "$REPORT_TABLE_COUNT" != "2" ]; then
-    echo "[$(date +'%Y-%m-%d %H:%M:%S')] Report database not fully initialized ($REPORT_TABLE_COUNT of 2 tables), running db_ddl_report_mysql.sql..."
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] Report database not fully initialized ($REPORT_TABLE_COUNT of 2 tables), running report_db_ddl_mysql.sql..."
     # ${INIT_DATE} must be replaced with (today + 3 days) so the p_init
     # partition covers writes until the partition-mgmt JOB takes over.
     # NOTE: this image is BusyBox-based, so neither GNU "date -d '+3 days'"
     # nor BSD "date -v+3d" works; only "date -d @<epoch>" is supported.
     REPORT_INIT_DATE=$(date -d "@$(( $(date +%s) + 3 * 86400 ))" +%Y-%m-%d 2>/dev/null || echo "2099-01-01")
-    sed "s/\${INIT_DATE}/$REPORT_INIT_DATE/g" /home/work/db_ddl_report_mysql.sql > /tmp/db_ddl_report_rendered.sql
-    if ! mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" < /tmp/db_ddl_report_rendered.sql; then
+    sed "s/\${INIT_DATE}/$REPORT_INIT_DATE/g" /home/work/db/report_db_ddl_mysql.sql > /tmp/report_db_ddl_rendered.sql
+    if ! mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" < /tmp/report_db_ddl_rendered.sql; then
         echo "[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: report database initialization failed, see mysql errors above"
         exit 1
     fi
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] Report database initialization complete (INIT_DATE=$REPORT_INIT_DATE)"
 else
-    echo "[$(date +'%Y-%m-%d %H:%M:%S')] Report database already initialized, skipping"
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] Report database already initialized, checking schema version..."
+    REPORT_COL=$(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" -sN \
+        -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$REPORT_DB' AND table_name='bfe_ai_request_log' AND column_name='ai_intent_questions_version';" 2>/dev/null || echo "0")
+    if [ "$REPORT_COL" != "1" ]; then
+        echo "[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: report schema is older than v0.8.0 (ai_intent_questions_version missing)." >&2
+        echo "  Apply conf/db/report_db_ddl_mysql_upgrade_to_0.0.11.sql (from the repository) to $REPORT_DB, then restart." >&2
+        echo "  Upgrade procedure: conf/db/README.md (section: Upgrading an existing deployment)." >&2
+        exit 1
+    fi
 fi
 
 if [ ! -f /home/work/bfe/conf/name_conf.data ]; then
@@ -288,7 +346,7 @@ cd /home/work/epp
 nohup ./epp \
     -api-addr "${AI_GATEWAY_API_ADDR:-http://127.0.0.1:8183/inner-api/v1}" \
     -api-token "${AI_GATEWAY_API_TOKEN:-c5QFb-MrlKktJbOid2M3}" \
-    -instance-id "${AI_GATEWAY_EPP_INSTANCE_ID:-epp-0}" \
+    -epp-group "${AI_GATEWAY_EPP_GROUP:-epp-0}" \
     -grpc-port "${AI_GATEWAY_EPP_GRPC_PORT:-9002}" \
     -health-port "${AI_GATEWAY_EPP_HEALTH_PORT:-9003}" \
     -metrics-port "${AI_GATEWAY_EPP_METRICS_PORT:-9090}" \

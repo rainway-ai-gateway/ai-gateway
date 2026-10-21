@@ -530,7 +530,7 @@ Using the built-in demo database (default):
 
 Using an external database (recommended for production):
 - If you have an external MySQL and have run the DB init script
-  - DB DDL: see `db_ddl.sql` in this repository
+  - DB DDL: see `conf/db/api_db_ddl_mysql.sql` and `conf/db/report_db_ddl_mysql.sql` in this repository
 - Update AI Gateway API DB config accordingly.
 
 #### 4.1 Update ai-gateway-configmap.yaml
