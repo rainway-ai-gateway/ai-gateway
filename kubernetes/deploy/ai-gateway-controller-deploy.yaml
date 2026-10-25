@@ -67,7 +67,7 @@ spec:
       containers:
         - name: bfe-ai-gateway-controller
           imagePullPolicy: IfNotPresent
-          image: ghcr.io/rainway-ai-gateway/ai-gateway-controller:v1.1.0-preview.1
+          image: ghcr.io/rainway-ai-gateway/ai-gateway-controller:v1.1.0
           command: [ "/ai-gateway-controller" ]
           args:
             # Services must carry this label to be discovered; "*" matches any value.

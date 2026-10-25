@@ -1,5 +1,52 @@
 # Changelog
 
+## [v0.8.0.0] — 2026-10-25
+
+General availability of the v0.8.0 feature set first published as `v0.8.0-preview.1`.
+
+### Updated Components
+
+| Component | Version |
+|---|---|
+| BFE | [v1.8.9](https://github.com/bfenetworks/bfe/releases/tag/v1.8.9) |
+| AI Gateway API | [v0.0.11](https://github.com/rainway-ai-gateway/ai-gateway-api/releases/tag/v0.0.11) |
+| Dashboard | [v0.11.0](https://github.com/rainway-ai-gateway/ai-gateway-web/releases/tag/v0.11.0) |
+| AI Gateway EPP | [v0.3.0](https://github.com/rainway-ai-gateway/ai-gateway-epp/releases/tag/v0.3.0) |
+| AI Gateway Controller | [v1.1.0](https://github.com/rainway-ai-gateway/ai-gateway-controller/releases/tag/v1.1.0) |
+| Log Reader | [v1.5.0](https://github.com/rainway-ai-gateway/log-reader/releases/tag/v1.5.0) |
+| conf-agent | [v0.0.8](https://github.com/rainway-ai-gateway/conf-agent/releases/tag/v0.0.8) |
+| Observability | [v0.0.2](https://github.com/rainway-ai-gateway/ai-gateway-observability/releases/tag/v0.0.2) |
+
+### Added
+
+- **New component: AI Gateway Controller (K8s only)** — watches Services labelled `ai-gateway-api-name` and writes pool instances through the InnerAPI `PUT /inner-api/v1/k8s_pools/{name}/instances`. Replaces the retired `bfe-service-controller`.
+- **Five data-plane modules enabled in the shipped config**: `mod_ai_cache`, `mod_traffic_mirror`, `mod_ai_intent`, `mod_ai_context`, `mod_ai_batch`, plus the matching conf-agent reloaders.
+- **Built-in report module** with MySQL backend (`bfe_report`), read through `/open-api/v1/report/*` and the Dashboard Data Report page. Doris remains the alternative backend.
+- Dashboard 0.11.0: AI cache / mirror / intent / context rule modules, batch tasks page, key re-encryption page, read-only admin role.
+- `providers.api_keys` / `api_keys.api_key` gained column-level encryption support: when `[Security].MasterKeyFile` is configured the value is stored as an `enc$v1$` AES-256-GCM envelope. Encryption is **off by default** — without that config key the column keeps holding plain JSON, so existing deployments are unaffected.
+
+### Changed
+
+- **EPP assignment unit is the instance group**, and every group holds exactly one instance; `-epp-group` replaces `-instance-id`. api and epp must be the same release.
+- **BFE log id is decimal**: `X-Bfe-Log-Id` / `log_id` changed from a 32-char hex form to a decimal string; the report table's dedup key gained `logid` so concurrent requests inside one second no longer merge.
+- **log-reader v1.5.0**: out-of-range values are clamped per column (`VALUE_NORMALIZED`) and row-located data errors drop only the offending row (`ROW_DROPPED_DATA`) instead of failing the whole batch; MySQL connectivity loss is no longer fail-fast.
+- **Doris detail table** gained 13 columns and `logid` in its `UNIQUE KEY`; the minute aggregate grew to 40 key dimensions. Upgrades go through `doris/sqls/upgrade/`.
+- conf-agent ships the `tls_conf` reloader commented out (TLS material is not deployed yet).
+
+### Breaking Changes
+
+- **Control-plane schema**: `providers.api_keys` becomes `MEDIUMTEXT` (fresh installs). The widening is **forward-looking, not mandatory**: column encryption is off by default, so a preview-era `JSON` column continues to accept plain-JSON provider secrets. Widen it (`ALTER TABLE providers MODIFY COLUMN api_keys MEDIUMTEXT NULL ..., ALGORITHM=COPY, LOCK=SHARED`) before you enable `[Security].MasterKeyFile`, otherwise the `enc$v1$` envelope is rejected by the JSON column with MySQL Error 3140. The Compose entrypoint and the Kubernetes init Job do **not** block startup on the old column type — the only hard guards remain `providers.instance_source` and `bfe_ai_request_log.ai_intent_questions_version`.
+- `epp_assignments.primary_instance_id` dropped; `epp_data` export shape is `assignment[cluster] = {group}`.
+- Controller flags `--enable-rs-pool`, `--enable-inference-pool`, `--bfe-product-name` removed; `--ai-gateway-api-name` is required.
+- `/alb-pool` OpenAPI and the `AIInstancePool` Dashboard page removed; the OpenAPI `product_pool` write channel is replaced by the InnerAPI `k8s_pools` channel.
+- `ai_cost_value` is written as `0` (not `NULL`) for zero-cost 2xx rows; `ai_usage_source` gains `aborted`.
+
+### Upgrade
+
+- From v0.7.x: run `conf/db/api_db_ddl_mysql_upgrade_to_0.0.11.sql` and `conf/db/report_db_ddl_mysql_upgrade_to_0.0.11.sql`.
+- From v0.8.0-preview.1: run **section 5** of `conf/db/api_db_ddl_mysql_upgrade_to_0.0.11.sql` (4 indexes on `operation_logs`, performance only). **Section 1.6** (the `providers.api_keys` widening) is optional — only needed before enabling `[Security].MasterKeyFile`. The script is not idempotent — do not re-run it whole.
+- Fresh installs need no manual step; both databases initialize from the full DDLs under `conf/db/`.
+
 ## [v0.7.0] — 2026-09-27
 
 ### Updated Components

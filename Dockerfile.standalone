@@ -269,6 +269,11 @@ else
         echo "  Upgrade procedure: conf/db/README.md (section: Upgrading an existing deployment)." >&2
         exit 1
     fi
+    # NOTE: providers.api_keys widening (JSON -> MEDIUMTEXT) is intentionally
+    # NOT guarded here. Column encryption is off by default (it requires
+    # [Security].MasterKeyFile), so api_keys keeps holding plain JSON and an
+    # unmigrated preview-era JSON column still works. Section 1.6 of the
+    # upgrade script widens it as a forward-looking change only.
 fi
 
 # Report database initialization (separate from control plane)

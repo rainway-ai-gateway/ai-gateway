@@ -464,7 +464,7 @@ CREATE TABLE `providers` (
   `description` VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '描述',
   `model_endpoint` JSON COMMENT '模型发现端点配置',
   `models` JSON COMMENT '支持的模型列表',
-  `api_keys` JSON COMMENT 'API key 列表',
+  `api_keys` MEDIUMTEXT NULL COMMENT 'API key 列表（列加密整列信封，enc$v1$ 前缀；无前缀为明文 JSON 兼容）',
   `instance_pool` JSON NOT NULL COMMENT '实例池列表（instance_source=instance_pool 时有效）',
   `instance_source` VARCHAR(32) NOT NULL DEFAULT 'instance_pool' COMMENT '实例供给方式：instance_pool（人维护）/ k8s_pool（发现组件维护）',
   `k8s_pool_name` VARCHAR(255) NULL COMMENT '引用的 K8s 实例池名称（instance_source=k8s_pool 时有效）',
@@ -628,7 +628,11 @@ CREATE TABLE `operation_logs` (
   KEY `idx_action` (`action`),
   KEY `idx_created_at` (`created_at`),
   KEY `idx_log_id` (`log_id`),
-  KEY `idx_resource_parent` (`resource_parent_id`)
+  KEY `idx_resource_parent` (`resource_parent_id`),
+  KEY `idx_operator_name_created` (`operator_name`, `created_at`),
+  KEY `idx_status_created` (`status`, `created_at`),
+  KEY `idx_resource_name_created` (`resource_name`, `created_at`),
+  KEY `idx_resource_id_created` (`resource_id`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI 网关配置操作日志表';
 
 -- ---------------------------------------------------------------------------

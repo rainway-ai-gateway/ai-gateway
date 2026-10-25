@@ -49,6 +49,14 @@ ALTER TABLE `providers`
 ALTER TABLE `rate_limit_policies`
   ADD COLUMN `batch_limits` TEXT COMMENT '批量限流配置（JSON对象）：max_create_rpm/max_active_batches/max_file_bytes/max_file_lines；省略/NULL=该策略不参与批量限流';
 
+-- 1.6 providers：api_keys 列扩容（加密态存储，issue #264）
+-- 该列入库的是「整列一条 enc$v1$ 信封」，而原声明 JSON：MySQL 严格模式对 JSON 列做语法校验，
+-- 信封不是合法 JSON → Error 3140 → Provider 创建/修改整条失败。JSON<->文本只能 COPY 算法，
+-- COPY 必须带锁（LOCK=SHARED：允许读、阻塞写）；providers 行数很小，锁窗口以毫秒计。
+ALTER TABLE `providers`
+  MODIFY COLUMN `api_keys` MEDIUMTEXT NULL COMMENT 'API key 列表（列加密整列信封，enc$v1$ 前缀；无前缀为明文 JSON 兼容）',
+  ALGORITHM=COPY, LOCK=SHARED;
+
 -- ---------------------------------------------------------------------------
 -- 2. 新增表
 -- ---------------------------------------------------------------------------
@@ -244,6 +252,16 @@ CREATE TABLE IF NOT EXISTS `batch_tasks` (
 -- 存量库若仍为明文 'admin'，无需在此处理：应用登录时按需惰性重哈希
 -- （见 lib/xcrypto/password.go CheckPassword 的 needMigrate）。
 
+-- 3.3 已在 2026-10-20 之前执行过本脚本的存量库（issue #264 补丁）
+-- 只需补执行 §1.6 一条语句（脚本非幂等，不要整体重跑）：
+-- ALTER TABLE `providers`
+--   MODIFY COLUMN `api_keys` MEDIUMTEXT NULL COMMENT 'API key 列表（列加密整列信封，enc$v1$ 前缀；无前缀为明文 JSON 兼容）',
+--   ALGORITHM=COPY, LOCK=SHARED;
+-- 回滚（改回 JSON）前必须先执行 POST /open-api/v1/security/reencrypt-sweeps
+-- {"mode":"decrypt","scope":"all"} 并复核无 enc$v1$ 残留，否则 ALTER 会因信封不是
+-- 合法 JSON 而报 Error 3140；改回 JSON 后文本值需为合法 JSON 才能通过。SQLite 部署
+-- 无需此步骤（TEXT 无需变更）。
+
 -- ---------------------------------------------------------------------------
 -- 4. 删除列（EPP 单实例化，见 design-docs/modifications/2026-10-14-epp-single-instance/）
 -- ---------------------------------------------------------------------------
@@ -264,6 +282,31 @@ ALTER TABLE `epp_assignments` DROP COLUMN `primary_instance_id`;
 --     FROM `epp_instances` GROUP BY group_name
 --   ) AS g ON a.group_name = g.group_name
 --   SET a.primary_instance_id = g.first_id;
+
+-- ---------------------------------------------------------------------------
+-- 5. 新增索引（operation-logs 过滤列组合索引，issue #280）
+-- ---------------------------------------------------------------------------
+-- 背景：issue #275（commit 75d0c51）已为 api_db_ddl_mysql.sql（全量建库）定义
+-- idx_operator_name_created / idx_status_created / idx_resource_name_created
+-- 三个过滤列组合索引，但本脚本此前未包含对应 ALTER，按本脚本升级的存量库
+-- 过滤查询仍全表扫描（25 万行规模首页 3.6-20 s，issue #280）。
+-- 本期再补 idx_resource_id_created：现有 idx_resource(resource_type, resource_id)
+-- 前导列是 resource_type，resource_id 单独过滤用不上（实测 17.4 s vs 56 ms）。
+-- 已在 2026-10-23 之前执行过本脚本的存量库：无需重跑全文，只需补执行本节
+-- （脚本非幂等，重复执行会报 "Duplicate key"，跳过即可）。
+ALTER TABLE `operation_logs`
+  ADD INDEX `idx_operator_name_created` (`operator_name`, `created_at`),
+  ADD INDEX `idx_status_created` (`status`, `created_at`),
+  ADD INDEX `idx_resource_name_created` (`resource_name`, `created_at`),
+  ADD INDEX `idx_resource_id_created` (`resource_id`, `created_at`),
+  ALGORITHM=INPLACE, LOCK=NONE;
+
+-- 回滚（仅供应急）：
+-- ALTER TABLE `operation_logs`
+--   DROP INDEX `idx_operator_name_created`,
+--   DROP INDEX `idx_status_created`,
+--   DROP INDEX `idx_resource_name_created`,
+--   DROP INDEX `idx_resource_id_created`;
 
 -- ===========================================================================
 -- 升级完成。完整新装 schema 见 api_db_ddl_mysql.sql。

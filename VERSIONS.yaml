@@ -1,30 +1,30 @@
-version: v0.8.0-preview.1
+version: v0.8.0.0
 components:
   bfe:
-    version: v1.8.9-preview.1
+    version: v1.8.9
     source: image
-    image: ghcr.io/rainway-ai-gateway/bfe:v1.8.9-preview.1
+    image: ghcr.io/rainway-ai-gateway/bfe:v1.8.9
     provides:
       - bfe
       - conf-agent
       - log-reader
 
   ai-gateway-epp:
-    version: v0.3.0-preview.1 
+    version: v0.3.0
     source: image
-    image: ghcr.io/rainway-ai-gateway/ai-gateway-epp:v0.3.0-preview.1
+    image: ghcr.io/rainway-ai-gateway/ai-gateway-epp:v0.3.0
 
   ai-gateway-api:
-    version: v0.0.11-preview.1 
+    version: v0.0.11
     source: image
-    image: ghcr.io/rainway-ai-gateway/ai-gateway-api:v0.0.11-preview.1
+    image: ghcr.io/rainway-ai-gateway/ai-gateway-api:v0.0.11
 
   observability:
-    version: v0.0.2-preview.1
+    version: v0.0.2
     source: github-tarball
     repo: rainway-ai-gateway/ai-gateway-observability
 
   ai-gateway-controller:
-    version: v1.1.0-preview.1
+    version: v1.1.0
     source: image
-    image: ghcr.io/rainway-ai-gateway/ai-gateway-controller:v1.1.0-preview.1
+    image: ghcr.io/rainway-ai-gateway/ai-gateway-controller:v1.1.0
