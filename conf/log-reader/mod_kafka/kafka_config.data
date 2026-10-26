@@ -83,3 +83,28 @@ FieldNames= ai_intent_source
 FieldNames= ai_intent_latency_us
 FieldNames= ai_intent_cache_hit
 FieldNames= ai_intent_questions_version
+
+# Access-log fields the Doris pipeline reads but the sample list above omitted.
+# They belong to the `default` set and 18 of them are mapped directly by
+# conf/doris/03_create_routine_load.sql; while they were missing here those
+# bfe_ai_request_log columns stayed NULL on the Kafka -> Doris path even though
+# mod_log_mysql filled them, so the two report backends disagreed. Order is
+# irrelevant; grouped as connection / client / response.
+FieldNames= log_tag
+FieldNames= client_network
+FieldNames= req_num
+FieldNames= session_id
+FieldNames= bfe_ip
+FieldNames= sock_src_ip
+FieldNames= vip
+FieldNames= vip6
+FieldNames= referrer
+FieldNames= user_agent
+FieldNames= delegation
+FieldNames= uid
+FieldNames= cookie
+FieldNames= req_headers
+FieldNames= res_location
+FieldNames= res_transfer_encoding
+FieldNames= res_headers
+FieldNames= session_offset_time

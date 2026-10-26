@@ -24,14 +24,23 @@
   degrades to fail-open. Enabling is required per deployment, not optional: with
   the previous default the whole key penalty / session binding feature was inert.
 - `conf/log-reader/mod_kafka/kafka_config.data` and the `log-reader-config`
-  ConfigMap now list the 12 fields that `log-reader` v1.5.0 already registers but
-  the v1.5.0 sample config did not: `ai_cache_read_tokens`,
-  `ai_cache_write_tokens`, `ai_cache_status`, `mirror_hit`, `mirror_cluster` and
-  the `ai_intent_*` group (including `ai_intent_questions_version`). With
-  `FieldMode = customized` the omitted names were never serialized, so the
-  matching report columns (already present in `bfe_ai_request_log` /
-  `bfe_ai_metrics_1m`) stayed NULL on the Kafka path. Config-only: no image
-  rebuild, the v1.5.0 binary already registers all 12 fields.
+  ConfigMap now list the 30 fields that `log-reader` v1.5.0 already registers but
+  the v1.5.0 sample config did not. With `FieldMode = customized` the omitted
+  names were never serialized, so the matching columns stayed NULL on the Kafka
+  path even though `mod_log_mysql` filled them on the MySQL path:
+  - the 12 new access-log fields — `ai_cache_read_tokens`,
+    `ai_cache_write_tokens`, `ai_cache_status`, `mirror_hit`, `mirror_cluster`
+    and the `ai_intent_*` group (including `ai_intent_questions_version`);
+  - the 18 base access-log fields the Doris pipeline maps directly in
+    `conf/doris/03_create_routine_load.sql` — `log_tag`, `client_network`,
+    `req_num`, `session_id`, `bfe_ip`, `sock_src_ip`, `vip`, `vip6`, `referrer`,
+    `user_agent`, `delegation`, `uid`, `cookie`, `req_headers`, `res_location`,
+    `res_transfer_encoding`, `res_headers`, `session_offset_time`. These were the
+    larger gap: the Doris dashboard reads some of them and the two report
+    backends disagreed column by column.
+  The list now covers all 92 registered fields, i.e. it is equivalent to
+  `FieldMode = default` while staying explicit. Config-only: no image rebuild,
+  the v1.5.0 binary already registers every one of them.
 
 ## [v0.8.0.0] — 2026-10-25
 
