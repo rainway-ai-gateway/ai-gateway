@@ -12,6 +12,26 @@
   the effective default (job off, whitelist off, cost 10), the active configuration
   is byte-identical, and no image rebuild is needed — both deploy paths mount this
   file from the repository.
+- `conf/bfe.conf` and the `bfe-config` ConfigMap now point BFE's Redis clients at
+  the name service entry that actually exists (`BFE.poc-redis-wx` in
+  `name_conf.data`) instead of upstream's `example.redis.cluster` placeholder.
+  `[SessionCache].Servers` is resolved through `NameConf`, so the placeholder
+  silently yielded an empty address list; session cache itself stays disabled.
+- `[AIKeyAffinity]` is now enabled (`Disabled = false`,
+  `ServiceConf = "BFE.poc-redis-wx"`), so a cluster with `SessionAffinity=true`
+  actually gets key affinity instead of failing open. Redis is part of the stack
+  on both deploy paths; if it is unreachable BFE still starts and affinity
+  degrades to fail-open. Enabling is required per deployment, not optional: with
+  the previous default the whole key penalty / session binding feature was inert.
+- `conf/log-reader/mod_kafka/kafka_config.data` and the `log-reader-config`
+  ConfigMap now list the 12 fields that `log-reader` v1.5.0 already registers but
+  the v1.5.0 sample config did not: `ai_cache_read_tokens`,
+  `ai_cache_write_tokens`, `ai_cache_status`, `mirror_hit`, `mirror_cluster` and
+  the `ai_intent_*` group (including `ai_intent_questions_version`). With
+  `FieldMode = customized` the omitted names were never serialized, so the
+  matching report columns (already present in `bfe_ai_request_log` /
+  `bfe_ai_metrics_1m`) stayed NULL on the Kafka path. Config-only: no image
+  rebuild, the v1.5.0 binary already registers all 12 fields.
 
 ## [v0.8.0.0] — 2026-10-25
 

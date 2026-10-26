@@ -208,8 +208,8 @@ data:
     # disable tls session cache or not
     SessionCacheDisabled = true
 
-    # tcp address of redis server
-    Servers = "example.redis.cluster"
+    # bns name (or weighted bns list) of redis servers, resolved via NameConf
+    Servers = "BFE.poc-redis-wx"
 
     # prefix for cache key
     KeyPrefix = "bfe"
@@ -233,12 +233,16 @@ data:
 
     [AIKeyAffinity]
     # AI key session affinity: server-owned Redis for session->key binding and
-    # key penalty state. Disabled by default; when disabled, affinity silently
-    # does not apply (fail-open) even if a cluster sets SessionAffinity=true.
-    Disabled = true
+    # key penalty state. When disabled, affinity silently does not apply
+    # (fail-open) even if a cluster sets SessionAffinity=true.
+    # Enabled in this deployment: the Redis below is part of the stack (see
+    # name_conf.data), so per-cluster SessionAffinity=true takes effect. If Redis
+    # is unreachable at startup the server stays up and affinity degrades to
+    # fail-open (a warning is logged, nothing else fails).
+    Disabled = false
 
     # bns name (or weighted bns list) of redis servers, resolved via NameConf
-    #ServiceConf = "redis_bns"
+    ServiceConf = "BFE.poc-redis-wx"
 
     # connection params (ms)
     #ConnectTimeoutMs = 1000
@@ -501,6 +505,13 @@ data:
   kafka_config.data: |
     # kafka_config.data
 
+    # Kafka output data configuration
+    # FieldMode values:
+    #   require    - output only required fields
+    #   default    - output default field set (current behavior, backward compatible)
+    #   all        - output all available fields (60+ fields)
+    #   customized - output fields listed in FieldNames + required fields
+
     [ConfFields]
     FieldMode = customized
     FieldNames= logid
@@ -565,3 +576,15 @@ data:
     FieldNames= ai_route_rule_hits
     FieldNames= ai_cluster_key_names
     FieldNames= ai_auth_hit_quota_plans
+    FieldNames= ai_cache_read_tokens
+    FieldNames= ai_cache_write_tokens
+    FieldNames= ai_cache_status
+    FieldNames= mirror_hit
+    FieldNames= mirror_cluster
+    FieldNames= ai_intent_question
+    FieldNames= ai_intent_answer
+    FieldNames= ai_intent_confidence
+    FieldNames= ai_intent_source
+    FieldNames= ai_intent_latency_us
+    FieldNames= ai_intent_cache_hit
+    FieldNames= ai_intent_questions_version
