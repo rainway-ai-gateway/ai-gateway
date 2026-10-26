@@ -40,6 +40,8 @@ data:
     ServerPort = 8183
     # server graceful exit timeout
     GracefulTimeOutInMs = 5000
+    # monitor bind address, empty means all interfaces
+    # MonitorAddr = ""
     # monitor port, don't start monitor server if less than 0
     MonitorPort = 8284
 
@@ -87,7 +89,6 @@ data:
     ParseTime            = true
     AllowNativePasswords = true
 
-
     Driver              = "mysql"
     MaxOpenConns        = 500
     MaxIdleConns        = 100
@@ -126,7 +127,7 @@ data:
     # don't open it on production environment
     SkipTokenValidate = false
     # sql will be record to log file when this option be opend
-    RecordSQL = true 
+    RecordSQL = true
     # how long use must login again
     SessionExpireInDay = 10
     # static file path, when dynamic router not be matched, static file will be return if found
@@ -159,6 +160,10 @@ data:
     # see design-docs/modifications/2026-09-15-report-query-api and
     # conf/db/report_db_ddl_mysql.sql. When [Report] is absent the report module is
     # not assembled and /open-api/v1/report/* stay 404.
+    #
+    # Lightweight shape (Backend="mysql"): a local MySQL report database plus the
+    # in-process aggregate / partition jobs. This is what the Compose and the
+    # Kubernetes stacks ship. Other warehouse shapes are listed further down.
     [Databases.report_db]
     Driver              = "mysql"
     DBName              = "bfe_report"
@@ -177,3 +182,184 @@ data:
     AggregateIntervalSec = 60
     RetentionDays       = 7
     EnablePartitionMgmt = true
+
+    # ---------------------------------------------------------------------------
+    # Everything below is optional and commented out on purpose. It mirrors the
+    # upstream ai-gateway-api v0.0.11 conf/ai_gateway_api.toml template: every key
+    # shown here is already the effective default (BatchJob off, AccessControl off,
+    # PasswordHashCost 10, MonitorAddr all interfaces), so leaving this file as-is
+    # changes nothing at runtime. Uncomment a block to switch the behaviour on.
+    # ---------------------------------------------------------------------------
+
+    # ---------------------------------
+    # Alternative report backends. Switching to one of them means replacing the
+    # [Databases.report_db] + [Report] pair above; the warehouse side (tables,
+    # routine load / INSERT JOB, views / materialized view) must already exist --
+    # see the corresponding docs/user/HOWTO.md in the ai-gateway-observability repo.
+    #
+    # Standard shape (Backend="doris", existing Kafka -> Doris pipeline; Doris FE
+    # speaks the MySQL protocol, so no new client is pulled in):
+    # [Databases.doris_db]
+    # Driver = "mysql"              # Doris FE MySQL-protocol port, not a new client
+    # DBName = "bfe_observability"
+    # Addr = "127.0.0.1:9030"       # Doris FE query_port
+    # Net = "tcp"                   # MUST be set: with an empty Net, FormatDSN drops
+    #                               # the address segment and the driver falls back
+    #                               # to 127.0.0.1:3306 (2026-10-02 field issue, same
+    #                               # as the starrocks block below)
+    # User = "report_read"          # SELECT-only is sufficient
+    # Passwd = ""
+    # AllowNativePasswords = true   # MUST be on: mysql.Config.FormatDSN serialises
+    #                               # the zero value as allowNativePasswords=false and
+    #                               # Doris FE rejects mysql_native_password
+    # InterpolateParams = true      # Recommended: textual protocol. Doris FE is a
+    #                               # MySQL-protocol reimplementation and the binary
+    #                               # (COM_STMT) wide-resultset path is unverified
+    #                               # (driver v1.6.0 has a NULL-bitmap bug there; the
+    #                               # same defect is confirmed on SR FE). Text
+    #                               # protocol is known good.
+    # MaxOpenConns = 20
+    # MaxIdleConns = 5
+    #
+    # [Report]
+    # Backend = "doris"
+    # Datasource = "doris_db"       # a [Databases.*] entry (doris: FE 9030)
+    # Database = ""                 # schema override for table names (optional)
+    # The three job options below only take effect with backend=mysql; with the
+    # doris backend they are inert either way (aggregation is maintained by the
+    # warehouse-side INSERT JOB, retention by the tables' dynamic_partition props):
+    # EnableAggregateJob = false
+    # AggregateIntervalSec = 60
+    # RetentionDays = 7
+    # EnablePartitionMgmt = false
+    #
+    # Standard shape (Backend="clickhouse", existing Kafka -> ClickHouse pipeline;
+    # this package is a pure query backend, no local job):
+    # [Databases.clickhouse_db]
+    # Driver = "clickhouse"         # clickhouse-go/v2 stdlib, native TCP protocol
+    # DBName = "bfe_observability"
+    # Addr = "127.0.0.1:9000"       # ClickHouse native TCP port (9000), not HTTP (8123)
+    # User = "report_read"          # SELECT-only is sufficient
+    # Passwd = "******"
+    # MaxOpenConns = 20
+    # MaxIdleConns = 5
+    #
+    # [Report]
+    # Backend = "clickhouse"
+    # Datasource = "clickhouse_db"  # a [Databases.*] entry (clickhouse: native 9000)
+    # Database = ""                 # schema override for table names (optional)
+    # The three job options below only take effect with backend=mysql; with the
+    # clickhouse backend they are inert either way (aggregation is maintained by
+    # the warehouse-side materialized view, retention by the tables' TTL):
+    # EnableAggregateJob = false
+    # AggregateIntervalSec = 60
+    # RetentionDays = 7
+    # EnablePartitionMgmt = false
+    #
+    # Standard shape (Backend="starrocks", existing Kafka -> StarRocks pipeline; SR
+    # FE speaks the MySQL protocol, zero new driver; mutually exclusive with Doris
+    # on the port, they cannot be deployed together; this package is a pure query
+    # backend, no local job):
+    # [Databases.starrocks_db]
+    # Driver = "mysql"              # StarRocks FE MySQL-protocol port, no new driver
+    # DBName = "bfe_observability"
+    # Addr = "127.0.0.1:9030"       # SR FE query_port
+    # Net = "tcp"                   # MUST be set (see the doris block above)
+    # User = "report_read"          # SELECT-only is sufficient
+    # Passwd = "******"
+    # AllowNativePasswords = true   # MUST be on (see the doris block above)
+    # InterpolateParams = true      # MUST be on: the COM_STMT binary row packet of
+    #                               # SR FE (a MySQL-protocol reimplementation) is
+    #                               # mis-encoded when a JSON column sits next to a
+    #                               # NULL column (driver v1.6.0 silently shifts
+    #                               # columns, v1.9.3 panics in readRow; both are FE
+    #                               # side defects, reproduced on 2026-10-02). Text
+    #                               # protocol (client-side interpolation) avoids it.
+    # MaxOpenConns = 20
+    # MaxIdleConns = 5
+    #
+    # [Report]
+    # Backend = "starrocks"
+    # Datasource = "starrocks_db"   # a [Databases.*] entry (starrocks: FE 9030)
+    # Database = ""                 # schema override for table names (optional)
+    # The three job options below only take effect with backend=mysql; with the
+    # starrocks backend they are inert either way (aggregation is maintained by the
+    # warehouse-side async materialized view, retention by dynamic_partition +
+    # partition_ttl):
+    # EnableAggregateJob = false
+    # AggregateIntervalSec = 60
+    # RetentionDays = 7
+    # EnablePartitionMgmt = false
+
+    # ---------------------------------
+    # Batch & async tasks reconcile job (批量任务与对账.md §5)
+    # The batch reconcile job ticks once per minute (mutual exclusion across
+    # replicas via a MySQL named lock; degrades to a no-op lock on SQLite) and runs:
+    # sync Redis BATCH_* into the database -> advance status -> backstop settlement.
+    # Off by default. Duties 2 and 3 need control-plane -> provider egress (shared
+    # with cancel and backstop settlement), so deployments without egress keep it
+    # off (degraded path, 批量任务与对账.md §9: settle on download interception plus
+    # reserved TTL release only). Batch tables (batch_tasks / batch_task_items ...)
+    # are part of the v0.0.11 schema either way.
+    # [BatchJob]
+    # Enable = true
+    # IntervalSec = 60               # tick period, default 60
+
+    # ---------------------------------
+    # Management plane access control (IP whitelist)
+    # Protects the Dashboard / OpenAPI / InnerAPI entry points. Off by default
+    # (backwards compatible); once enabled, requests outside the whitelisted
+    # subnets get a plain 403 at the network layer, before authentication.
+    # The config lives in this server file rather than in the database on purpose:
+    # the whitelist protects the control-plane API itself, so it must stay editable
+    # even when you have locked yourself out (see design-docs/modifications/
+    # 2026-10-04-mgmt-ip-whitelist).
+    # Reload: curl -X POST http://<pod-ip>:8284/reload/access_control (atomic swap,
+    # the old config stays effective if the new one fails to compile); a graceful
+    # restart is the fallback. Rollout advice: start with Audit=true (log only, do
+    # not reject), confirm the "should have been rejected" list is empty, then flip
+    # to false; the first rule must contain the current operations egress subnet,
+    # otherwise you lock yourself out.
+    # [AccessControl]
+    # Enable = false
+    # Trusted proxy subnets (LB / Ingress / BFE reverse-proxy egress). X-Forwarded-For
+    # is only parsed when the peer belongs to a trusted proxy (walking right to left,
+    # skipping trusted proxies, taking the first untrusted IP); XFF from untrusted
+    # sources is ignored, so spoofed headers do not work. In Kubernetes this is
+    # usually the Ingress / node subnet.
+    # TrustedProxies = ["10.244.0.0/16"]
+    #
+    # InnerAPI: infrastructure subnets only (conf-agent / BFE / EPP config pull)
+    # [[AccessControl.Rules]]
+    # Name       = "inner-api"
+    # PathPrefix = "/inner-api/v1"
+    # Subnets    = ["10.10.0.0/16"]
+    # Audit      = false
+    #
+    # Management API + Dashboard: operations subnets only (longest prefix match, the
+    # inner-api rule above wins for its path)
+    # [[AccessControl.Rules]]
+    # Name       = "mgmt"
+    # PathPrefix = "/"
+    # Subnets    = ["192.168.1.0/24", "100.64.0.0/16"]
+    # Audit      = false
+
+    # ---------------------------------
+    # [Security] -- secrets at rest, transport encryption of exported configs, and
+    # the password hashing cost factor. All of it is off / at default unless set.
+    # MasterKeyFile: keyring file for at-rest encryption (the ONLY injection way,
+    # no environment variable by design; file mode 0600). Empty means encryption is
+    # disabled and providers.api_keys / api_keys.api_key stay plaintext (this is
+    # what Compose and Kubernetes ship). Enabling it requires the api_keys column to
+    # be TEXT-class -- see section 1.6 of conf/db/api_db_ddl_mysql_upgrade_to_0.0.11.sql.
+    # ActiveKeyID selects which key in the keyring encrypts new values (0 = default).
+    # MasterKeyFile = "/etc/ai-gateway/master.keys"
+    # ActiveKeyID = 1
+    # ExportKeyFile / ActiveExportKeyID / EncryptExports encrypt the sensitive fields
+    # of the two key-bearing export topics; the BFE side reads the same file through
+    # its own [Security].KeyFile (see design-docs/sys-design/details/密钥静态加密.md).
+    # PasswordHashCost: bcrypt cost factor for users.password. Default 10 (about
+    # 60-80ms per verification on a modern CPU), valid range 4-16; 0 or absent means
+    # the default 10, out-of-range values fail startup (fail-fast). Existing bcrypt
+    # hashes carry their own cost factor, so changing this needs no data migration.
+    # PasswordHashCost = 10

@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- `conf/ai_gateway_api.toml` and the `ai-gateway-conf` ConfigMap now carry the
+  optional blocks from the ai-gateway-api v0.0.11 template: `[Server].MonitorAddr`,
+  the Doris / ClickHouse / StarRocks report backend examples, `[BatchJob]`,
+  `[AccessControl]` and `[Security]` (`PasswordHashCost`, plus the keyring keys our
+  release notes already reference). Comment-only change: every key shown is already
+  the effective default (job off, whitelist off, cost 10), the active configuration
+  is byte-identical, and no image rebuild is needed — both deploy paths mount this
+  file from the repository.
+
 ## [v0.8.0.0] — 2026-10-25
 
 General availability of the v0.8.0 feature set first published as `v0.8.0-preview.1`.
