@@ -1,8 +1,39 @@
 # Changelog
 
-## [Unreleased]
+ — 2026-10-25
+
+General availability of the v0.8.0 feature set first published as `v0.8.0-preview.1`.
+
+### Updated Components
+
+| Component | Version |
+|---|---|
+| BFE | [v1.8.9](https://github.com/bfenetworks/bfe/releases/tag/v1.8.9) |
+| AI Gateway API | [v0.0.11](https://github.com/rainway-ai-gateway/ai-gateway-api/releases/tag/v0.0.11) |
+| Dashboard | [v0.11.0](https://github.com/rainway-ai-gateway/ai-gateway-web/releases/tag/v0.11.0) |
+| AI Gateway EPP | [v0.3.0](https://github.com/rainway-ai-gateway/ai-gateway-epp/releases/tag/v0.3.0) |
+| AI Gateway Controller | [v1.1.0](https://github.com/rainway-ai-gateway/ai-gateway-controller/releases/tag/v1.1.0) |
+| Log Reader | [v1.5.0](https://github.com/rainway-ai-gateway/log-reader/releases/tag/v1.5.0) |
+| conf-agent | [v0.0.8](https://github.com/rainway-ai-gateway/conf-agent/releases/tag/v0.0.8) |
+| Observability | [v0.0.2](https://github.com/rainway-ai-gateway/ai-gateway-observability/releases/tag/v0.0.2) |
+
+### Added
+
+- **New component: AI Gateway Controller (K8s only)** — watches Services labelled `ai-gateway-api-name` and writes pool instances through the InnerAPI `PUT /inner-api/v1/k8s_pools/{name}/instances`. Replaces the retired `bfe-service-controller`.
+- **Five data-plane modules enabled in the shipped config**: `mod_ai_cache`, `mod_traffic_mirror`, `mod_ai_intent`, `mod_ai_context`, `mod_ai_batch`, plus the matching conf-agent reloaders.
+- **Built-in report module** with MySQL backend (`bfe_report`), read through `/open-api/v1/report/*` and the Dashboard Data Report page. Doris remains the alternative backend.
+- Dashboard 0.11.0: AI cache / mirror / intent / context rule modules, batch tasks page, key re-encryption page, read-only admin role.
+- `providers.api_keys` / `api_keys.api_key` gained column-level encryption support: when `[Security].MasterKeyFile` is configured the value is stored as an `enc$v1$` AES-256-GCM envelope. Encryption is **off by default** — without that config key the column keeps holding plain JSON, so existing deployments are unaffected.
 
 ### Changed
+
+- **EPP assignment unit is the instance group**, and every group holds exactly one instance; `-epp-group` replaces `-instance-id`. api and epp must be the same release.
+- **BFE log id is decimal**: `X-Bfe-Log-Id` / `log_id` changed from a 32-char hex form to a decimal string; the report table's dedup key gained `logid` so concurrent requests inside one second no longer merge.
+- **log-reader v1.5.0**: out-of-range values are clamped per column (`VALUE_NORMALIZED`) and row-located data errors drop only the offending row (`ROW_DROPPED_DATA`) instead of failing the whole batch; MySQL connectivity loss is no longer fail-fast.
+- **Doris detail table** gained 13 columns and `logid` in its `UNIQUE KEY`; the minute aggregate grew to 40 key dimensions. Upgrades go through `doris/sqls/upgrade/`.
+- conf-agent ships the `tls_conf` reloader commented out (TLS material is not deployed yet).
+
+### Configuration Alignment (re-released 2026-10-26)
 
 - `conf/ai_gateway_api.toml` and the `ai-gateway-conf` ConfigMap now carry the
   optional blocks from the ai-gateway-api v0.0.11 template: `[Server].MonitorAddr`,
@@ -41,39 +72,6 @@
   The list now covers all 92 registered fields, i.e. it is equivalent to
   `FieldMode = default` while staying explicit. Config-only: no image rebuild,
   the v1.5.0 binary already registers every one of them.
-
-## [v0.8.0.0] — 2026-10-25
-
-General availability of the v0.8.0 feature set first published as `v0.8.0-preview.1`.
-
-### Updated Components
-
-| Component | Version |
-|---|---|
-| BFE | [v1.8.9](https://github.com/bfenetworks/bfe/releases/tag/v1.8.9) |
-| AI Gateway API | [v0.0.11](https://github.com/rainway-ai-gateway/ai-gateway-api/releases/tag/v0.0.11) |
-| Dashboard | [v0.11.0](https://github.com/rainway-ai-gateway/ai-gateway-web/releases/tag/v0.11.0) |
-| AI Gateway EPP | [v0.3.0](https://github.com/rainway-ai-gateway/ai-gateway-epp/releases/tag/v0.3.0) |
-| AI Gateway Controller | [v1.1.0](https://github.com/rainway-ai-gateway/ai-gateway-controller/releases/tag/v1.1.0) |
-| Log Reader | [v1.5.0](https://github.com/rainway-ai-gateway/log-reader/releases/tag/v1.5.0) |
-| conf-agent | [v0.0.8](https://github.com/rainway-ai-gateway/conf-agent/releases/tag/v0.0.8) |
-| Observability | [v0.0.2](https://github.com/rainway-ai-gateway/ai-gateway-observability/releases/tag/v0.0.2) |
-
-### Added
-
-- **New component: AI Gateway Controller (K8s only)** — watches Services labelled `ai-gateway-api-name` and writes pool instances through the InnerAPI `PUT /inner-api/v1/k8s_pools/{name}/instances`. Replaces the retired `bfe-service-controller`.
-- **Five data-plane modules enabled in the shipped config**: `mod_ai_cache`, `mod_traffic_mirror`, `mod_ai_intent`, `mod_ai_context`, `mod_ai_batch`, plus the matching conf-agent reloaders.
-- **Built-in report module** with MySQL backend (`bfe_report`), read through `/open-api/v1/report/*` and the Dashboard Data Report page. Doris remains the alternative backend.
-- Dashboard 0.11.0: AI cache / mirror / intent / context rule modules, batch tasks page, key re-encryption page, read-only admin role.
-- `providers.api_keys` / `api_keys.api_key` gained column-level encryption support: when `[Security].MasterKeyFile` is configured the value is stored as an `enc$v1$` AES-256-GCM envelope. Encryption is **off by default** — without that config key the column keeps holding plain JSON, so existing deployments are unaffected.
-
-### Changed
-
-- **EPP assignment unit is the instance group**, and every group holds exactly one instance; `-epp-group` replaces `-instance-id`. api and epp must be the same release.
-- **BFE log id is decimal**: `X-Bfe-Log-Id` / `log_id` changed from a 32-char hex form to a decimal string; the report table's dedup key gained `logid` so concurrent requests inside one second no longer merge.
-- **log-reader v1.5.0**: out-of-range values are clamped per column (`VALUE_NORMALIZED`) and row-located data errors drop only the offending row (`ROW_DROPPED_DATA`) instead of failing the whole batch; MySQL connectivity loss is no longer fail-fast.
-- **Doris detail table** gained 13 columns and `logid` in its `UNIQUE KEY`; the minute aggregate grew to 40 key dimensions. Upgrades go through `doris/sqls/upgrade/`.
-- conf-agent ships the `tls_conf` reloader commented out (TLS material is not deployed yet).
 
 ### Breaking Changes
 
