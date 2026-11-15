@@ -12,6 +12,8 @@ during a normal install — the two full DDLs are picked up automatically, and t
 | `report_db_ddl_mysql.sql` | `bfe_report` | Report plane: request detail + 1-minute aggregate tables. Used on **fresh install** only. |
 | `api_db_ddl_mysql_upgrade_to_0.0.11.sql` | `open_bfe` | Migrates a v0.0.10 / v0.0.10.1 control plane to the v0.0.11 schema (product v0.7.x → v0.8.0). |
 | `report_db_ddl_mysql_upgrade_to_0.0.11.sql` | `bfe_report` | Migrates a v0.7.x report schema to v0.8.0 (10 detail columns, 3 aggregate columns, `logid` dedup key). |
+| `api_db_ddl_mysql_upgrade_to_0.1.0.sql` | `open_bfe` | Migrates a v0.0.11 control plane to v0.1.0 (product v0.8.0.0 → v0.9.0.0, drops `providers.k8s_instance_pool`, **first DROP**). |
+| `report_db_ddl_mysql_upgrade_to_0.1.0.sql` | `bfe_report` | Migrates a v0.0.11 report schema to v0.1.0 (detail +2 price-miss columns `ai_price_miss`/`ai_price_warn`). |
 
 Naming: `<plane>_db_ddl_<backend>[_upgrade_to_<schema version>].sql`, where
 `<plane>` is `api` (control plane) or `report`, and `<backend>` is `mysql`.
@@ -116,11 +118,11 @@ If your databases are named differently, edit that line first.
 ```bash
 docker compose exec -T mysql \
     sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' \
-    < conf/db/api_db_ddl_mysql_upgrade_to_0.0.11.sql
+    < conf/db/api_db_ddl_mysql_upgrade_to_0.1.0.sql
 
 docker compose exec -T mysql \
     sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' \
-    < conf/db/report_db_ddl_mysql_upgrade_to_0.0.11.sql
+    < conf/db/report_db_ddl_mysql_upgrade_to_0.1.0.sql
 ```
 
 **Kubernetes:**
@@ -128,18 +130,18 @@ docker compose exec -T mysql \
 ```bash
 kubectl -n ai-gateway-system exec -i deploy/mysql -- \
     sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' \
-    < conf/db/api_db_ddl_mysql_upgrade_to_0.0.11.sql
+    < conf/db/api_db_ddl_mysql_upgrade_to_0.1.0.sql
 
 kubectl -n ai-gateway-system exec -i deploy/mysql -- \
     sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' \
-    < conf/db/report_db_ddl_mysql_upgrade_to_0.0.11.sql
+    < conf/db/report_db_ddl_mysql_upgrade_to_0.1.0.sql
 ```
 
 **External MySQL:**
 
 ```bash
-mysql -h<host> -P<port> -u<user> -p < conf/db/api_db_ddl_mysql_upgrade_to_0.0.11.sql
-mysql -h<host> -P<port> -u<user> -p < conf/db/report_db_ddl_mysql_upgrade_to_0.0.11.sql
+mysql -h<host> -P<port> -u<user> -p < conf/db/api_db_ddl_mysql_upgrade_to_0.1.0.sql
+mysql -h<host> -P<port> -u<user> -p < conf/db/report_db_ddl_mysql_upgrade_to_0.1.0.sql
 ```
 
 ### 3. Verify
@@ -169,6 +171,11 @@ state by the guard, delete it so it re-runs after the migration:
 
 - **Not idempotent.** Re-running a script reports `Duplicate column` /
   `Duplicate key` errors. That is expected; skip those statements.
+- **The v0.1.0 control-plane script contains one DROP COLUMN**
+  (`providers.k8s_instance_pool`) — the first in upgrade-script history. The
+  column was a read-only mirror (written by the system from `/k8s_pools`, no
+  human data), so nothing is lost; the script ships with an existence pre-check
+  and an emergency rollback statement.
 - **Report script order matters.** It backfills `NULL` `logid` values *before*
   `MODIFY ... NOT NULL`, and rebuilds `uk_dedup`. Running section 3 out of order
   fails with error 1138.

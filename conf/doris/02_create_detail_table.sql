@@ -141,14 +141,18 @@ CREATE TABLE bfe_ai_request_log (
     ai_intent_source        VARCHAR(32)     COMMENT '意图来源：explicit_header/classifier/cache',
     ai_intent_latency_us    BIGINT          COMMENT '意图决策耗时（微秒，NULL=未分类）',
     ai_intent_cache_hit     BOOLEAN         COMMENT '意图缓存命中（NULL=未分类）',
-    ai_intent_questions_version VARCHAR(32) COMMENT '意图问题集版本'
+    ai_intent_questions_version VARCHAR(32) COMMENT '意图问题集版本',
+
+    -- AI 可观测 — 缺价信号（bfe#1479）
+    ai_price_miss           BOOLEAN         COMMENT '是否发生缺价回退（NULL=未上报，1/0）',
+    ai_price_warn           VARCHAR(32)     COMMENT '缺价形态：fallback/subitem_missing/no_entry/no_baseline/no_model_table/reject（NULL=未上报）'
 )
 -- 唯一键含请求级判别列 logid（bfe#1417）：log_time 为秒级，缺 logid 时同秒同 Key 同模型的并发
 -- 请求会互相合并、只留 1 行（丢率 (n-1)/n，生产窗口实测 13.5%）；logid 恰为第 5 列，键仍是
 -- 列前缀（Doris 对 KEY 列的硬约束）。存量升级脚本：sqls/upgrade/2026-10-13-issue-1417-detail-unique-key-logid/
 UNIQUE KEY(hostid, log_time, ai_apikey_id, ai_requested_model, logid)
 PARTITION BY RANGE(log_time) (
-    PARTITION p_init VALUES LESS THAN ('2026-10-19')
+    PARTITION p_init VALUES LESS THAN ('2026-11-14')
 )
 DISTRIBUTED BY HASH(ai_apikey_id) BUCKETS 32
 PROPERTIES (

@@ -1,6 +1,54 @@
 # Changelog
 
- — 2026-10-25
+## [v0.9.0.0] — 2026-11-15
+
+Component refresh: BFE v1.9.0, ai-gateway-api v0.1.0, log-reader v1.6.0, Dashboard v0.1.0, observability v0.1.0. EPP v0.3.0, conf-agent v0.0.8 and the AI Gateway Controller v1.1.0 are unchanged.
+
+### Updated Components
+
+| Component | Version |
+|---|---|
+| BFE | [v1.9.0](https://github.com/bfenetworks/bfe/releases/tag/v1.9.0) |
+| AI Gateway API | [v0.1.0](https://github.com/rainway-ai-gateway/ai-gateway-api/releases/tag/v0.1.0) |
+| Dashboard | [v0.1.0](https://github.com/rainway-ai-gateway/ai-gateway-web/releases/tag/v0.1.0) |
+| AI Gateway EPP | [v0.3.0](https://github.com/rainway-ai-gateway/ai-gateway-epp/releases/tag/v0.3.0) (unchanged) |
+| AI Gateway Controller | [v1.1.0](https://github.com/rainway-ai-gateway/ai-gateway-controller/releases/tag/v1.1.0) (unchanged) |
+| Log Reader | [v1.6.0](https://github.com/rainway-ai-gateway/log-reader/releases/tag/v1.6.0) |
+| conf-agent | [v0.0.8](https://github.com/rainway-ai-gateway/conf-agent/releases/tag/v0.0.8) (unchanged) |
+| Observability | [v0.1.0](https://github.com/rainway-ai-gateway/ai-gateway-observability/releases/tag/v0.1.0) |
+
+### Added
+
+- **Missing-price signals** (bfe#1479): `llm_config.price_miss_action` per cluster (`fallback_chat` default / `bill_zero` / `reject`), four-layer observability (`PRICE_MISS` log, counters, access-log fields `ai_price_miss`/`ai_price_warn`, reconciliation queries), and report detail columns `ai_price_miss` / `ai_price_warn` (MySQL report DDL and Doris detail table both grow; log-reader v1.6.0 registers and serializes the two fields — the shipped `kafka_config.data` now lists all 94 registered fields).
+- **Configurable key-affinity penalty TTL** (bfe#1448): `llm_config.key_affinity.penalty_ttl_429` / `penalty_ttl_auth` per cluster, paired with the configurable AI upstream key penalty in BFE v1.9.0.
+- **Reasoning-content normalization**: cluster `llm_config.ensure_reasoning_content` (`openai` / `anthropic`) fills an empty `reasoning_content` so thinking-mode upstreams no longer 400 on mirrored turns (bfe `AIConf.EnsureReasoningContent`).
+- **Condition engine modes** (bfe v1.9.0): `Server.ConditionEngineMode` (`LegacyFirst` default / `ExprCompatible` / `ExprOnly`); shipped config keeps the default.
+- **AI upstream Accept-Encoding governance** (bfe#1468): `Server.AIUpstreamAcceptEncoding = auto` (default) offers upstreams only codings the gateway can decode; compressed SSE usage is now parsed instead of estimated (fixes ~46x overcharge at high cache-hit rates).
+- **Unpaginated full lists**: `/entities` and `/entity-types` return complete lists when pagination parameters are absent.
+
+### Changed
+
+- **Control-plane schema**: `providers.k8s_instance_pool` is removed from the fresh-install DDL (api v0.1.0). The k8s pool mirror lives in the `k8s_pools` resource only; a provider keeps `instance_source` + `k8s_pool_name`. First upgrade script with a `DROP COLUMN` — see `conf/db/api_db_ddl_mysql_upgrade_to_0.1.0.sql`.
+- **Report detail table**: 99 → 101 columns (`ai_price_miss`, `ai_price_warn`, both nullable, NULL = no price miss on that row).
+- **TTFT/TPOT caliber** (api#315): report overview/timeseries and the Doris minute aggregate now count streaming rows (`ai_stream=1`) only, matching the observability backends.
+- Shipped `conf/bfe.conf` synced to the BFE v1.9.0 template (new keys above plus the CipherSuites whitelist note and the DEPRECATED marker on `[SessionCache]` — the redis TLS session cache was removed).
+- Doris assets regenerated from observability v0.1.0 (price-miss columns in detail table + routine load, streaming-caliber aggregate job).
+
+### Fixed (component-level highlights)
+
+- 52% of production `CLIENT_WRITE` rows were normal client hangs after the terminal event; they now carry `ai_client_closed_after_complete` instead of an error (bfe#1473).
+- Affinity binding miss no longer reported as a Redis failure (bfe#1472) — first-request-of-session affinity now binds correctly.
+- Provider `PATCH` validates the merged object; same-second config exports no longer 500 on the version unique key; deleting referenced Entities/Entity-Types returns 409; a batch of validation hardening (name charset, length limits, level consistency).
+
+### Upgrade
+
+- From v0.8.0.0: run `conf/db/api_db_ddl_mysql_upgrade_to_0.1.0.sql` then `conf/db/report_db_ddl_mysql_upgrade_to_0.1.0.sql`. The control-plane script drops `providers.k8s_instance_pool` (read-only mirror, no business data).
+- From v0.8.0-preview.1 or earlier: run the v0.8.0 upgrade chain first, then the two scripts above.
+- Fresh installs need no manual step; both databases initialize from the full DDLs under `conf/db/`.
+- Kubernetes: ConfigMap `subPath` mounts do not hot-reload — `kubectl rollout restart` the bfe / api / log-reader deployments after applying.
+
+
+## [v0.8.0.0] — 2026-10-25 (re-released 2026-10-26, see Configuration Alignment)
 
 General availability of the v0.8.0 feature set first published as `v0.8.0-preview.1`.
 

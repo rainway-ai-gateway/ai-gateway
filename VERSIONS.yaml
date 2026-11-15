@@ -1,9 +1,9 @@
-version: v0.8.0.0
+version: v0.9.0.0
 components:
   bfe:
-    version: v1.8.9
+    version: v1.9.0
     source: image
-    image: ghcr.io/rainway-ai-gateway/bfe:v1.8.9
+    image: ghcr.io/rainway-ai-gateway/bfe:v1.9.0
     provides:
       - bfe
       - conf-agent
@@ -15,12 +15,12 @@ components:
     image: ghcr.io/rainway-ai-gateway/ai-gateway-epp:v0.3.0
 
   ai-gateway-api:
-    version: v0.0.11
+    version: v0.1.0
     source: image
-    image: ghcr.io/rainway-ai-gateway/ai-gateway-api:v0.0.11
+    image: ghcr.io/rainway-ai-gateway/ai-gateway-api:v0.1.0
 
   observability:
-    version: v0.0.2
+    version: v0.1.0
     source: github-tarball
     repo: rainway-ai-gateway/ai-gateway-observability
 

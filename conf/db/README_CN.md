@@ -10,6 +10,8 @@
 | `report_db_ddl_mysql.sql` | `bfe_report` | 报表面：请求明细表 + 分钟聚合表，仅用于**全新安装** |
 | `api_db_ddl_mysql_upgrade_to_0.0.11.sql` | `open_bfe` | 控制面 v0.0.10 / v0.0.10.1 → v0.0.11（产品 v0.7.x → v0.8.0） |
 | `report_db_ddl_mysql_upgrade_to_0.0.11.sql` | `bfe_report` | 报表库 v0.7.x → v0.8.0（明细 10 列、聚合 3 列、`logid` 幂等键） |
+| `api_db_ddl_mysql_upgrade_to_0.1.0.sql` | `open_bfe` | 控制面 v0.0.11 → v0.1.0（产品 v0.8.0.0 → v0.9.0.0，删除 `providers.k8s_instance_pool`，**首处 DROP**） |
+| `report_db_ddl_mysql_upgrade_to_0.1.0.sql` | `bfe_report` | 报表库 v0.0.11 → v0.1.0（明细 +2 列缺价信号 `ai_price_miss`/`ai_price_warn`） |
 
 命名规则：`<面>_db_ddl_<后端>[_upgrade_to_<schema 版本>].sql`，`<面>` 为 `api`（控制面）或 `report`（报表面），`<后端>` 为 `mysql`。报表库的 Doris 形态不在这里，由 `make sync` 生成到 `conf/doris/`。
 
@@ -91,11 +93,11 @@ python3 scripts/gen-db-ddl.py --write   # 上游有变更时同步生成（只�
 ```bash
 docker compose exec -T mysql \
     sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' \
-    < conf/db/api_db_ddl_mysql_upgrade_to_0.0.11.sql
+    < conf/db/api_db_ddl_mysql_upgrade_to_0.1.0.sql
 
 docker compose exec -T mysql \
     sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' \
-    < conf/db/report_db_ddl_mysql_upgrade_to_0.0.11.sql
+    < conf/db/report_db_ddl_mysql_upgrade_to_0.1.0.sql
 ```
 
 **Kubernetes：**
@@ -103,18 +105,18 @@ docker compose exec -T mysql \
 ```bash
 kubectl -n ai-gateway-system exec -i deploy/mysql -- \
     sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' \
-    < conf/db/api_db_ddl_mysql_upgrade_to_0.0.11.sql
+    < conf/db/api_db_ddl_mysql_upgrade_to_0.1.0.sql
 
 kubectl -n ai-gateway-system exec -i deploy/mysql -- \
     sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' \
-    < conf/db/report_db_ddl_mysql_upgrade_to_0.0.11.sql
+    < conf/db/report_db_ddl_mysql_upgrade_to_0.1.0.sql
 ```
 
 **外部 MySQL：**
 
 ```bash
-mysql -h<host> -P<port> -u<user> -p < conf/db/api_db_ddl_mysql_upgrade_to_0.0.11.sql
-mysql -h<host> -P<port> -u<user> -p < conf/db/report_db_ddl_mysql_upgrade_to_0.0.11.sql
+mysql -h<host> -P<port> -u<user> -p < conf/db/api_db_ddl_mysql_upgrade_to_0.1.0.sql
+mysql -h<host> -P<port> -u<user> -p < conf/db/report_db_ddl_mysql_upgrade_to_0.1.0.sql
 ```
 
 ### 3. 校验
@@ -139,6 +141,7 @@ SELECT COUNT(*) FROM information_schema.columns
 ## 容易踩的点
 
 - **脚本非幂等。** 重复执行会报 `Duplicate column` / `Duplicate key`，属预期，跳过该语句即可。
+- **v0.1.0 控制面脚本含一处 DROP COLUMN**（`providers.k8s_instance_pool`），是升级脚本首次破例。该列为只读镜像（系统从 `/k8s_pools` 同步写入，无人工数据），删除不丢业务数据；脚本自带列存在性预检与应急回滚语句。
 - **报表脚本有顺序要求。** 它先把 `NULL` 的 `logid` 回填，再 `MODIFY ... NOT NULL`，并重建 `uk_dedup`；顺序颠倒会报 1138。
 - **`api_keys.api_key_hash` 不由 SQL 填充。** 该值是带应用级 pepper 的 HMAC-SHA256，存量行必须先由外部脚本回填（见控制面脚本末尾「手动步骤」），再切唯一键。
 - **`epp_assignments.primary_instance_id` 会被删除。** 旧版本上要先把 EPP 实例池收敛成单实例组，否则组内实例按 `id` 序派生，可能出现一次指向切换。

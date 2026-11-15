@@ -52,8 +52,11 @@ SELECT
     SUM(COALESCE(ai_input_tokens, 0))    AS input_tokens,
     SUM(COALESCE(ai_output_tokens, 0))   AS output_tokens,
     SUM(COALESCE(ai_total_tokens, 0))    AS total_tokens,
-    SUM(COALESCE(ai_ttft_us, 0))         AS ttft_us_sum,
-    SUM(COALESCE(ai_tpot_us, 0))         AS tpot_us_sum,
+    -- ttft/tpot 仅累加流式行（ai-gateway-api issue #315）：BFE 对非流式响应
+    -- 同样实测首包/每 token 耗时，非流式行的 ai_ttft_us/ai_tpot_us 可非 0，
+    -- 但流式口径指标的分子不得包含它们（与 api 查询侧 CASE WHEN ai_stream=1 恒等）。
+    SUM(CASE WHEN COALESCE(ai_stream,0)=1 THEN COALESCE(ai_ttft_us,0) ELSE 0 END) AS ttft_us_sum,
+    SUM(CASE WHEN COALESCE(ai_stream,0)=1 THEN COALESCE(ai_tpot_us,0) ELSE 0 END) AS tpot_us_sum,
     SUM(COALESCE(req_header_len, 0))     AS req_header_bytes,
     SUM(COALESCE(req_body_len, 0))       AS req_body_bytes,
     SUM(COALESCE(res_header_len, 0))     AS res_header_bytes,

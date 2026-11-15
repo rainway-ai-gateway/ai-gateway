@@ -81,7 +81,7 @@ AGGREGATE KEY(ts_min, hostid, ai_apikey_id, ai_requested_model, ai_target_model,
               ai_auth_reject_quota_plans_slot5,
               ai_cache_status, mirror_hit, ai_intent_answer)
 PARTITION BY RANGE(ts_min) (
-    PARTITION p_init VALUES LESS THAN ('2026-10-19')
+    PARTITION p_init VALUES LESS THAN ('2026-11-14')
 )
 DISTRIBUTED BY HASH(ai_apikey_id) BUCKETS 16
 PROPERTIES (
