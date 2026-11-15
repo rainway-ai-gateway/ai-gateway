@@ -57,6 +57,14 @@ COPY --from=bfe /home/work/log-reader/bin/log-reader /home/work/log-reader/bin/l
 COPY --from=bfe /home/work/log-reader/conf/ /home/work/log-reader/conf/
 COPY --from=epp /home/work/epp/epp /home/work/epp/epp
 
+# Assembly-curated configuration overrides. The component images carry their
+# own template configs (e.g. bfe ships EnableAiGateway=false and a trimmed
+# kafka field list); the assembly repo is the single source of truth for the
+# shipped runtime configuration — identical content to the Kubernetes
+# ConfigMaps — and must win over whatever the component image baked in.
+COPY conf/bfe.conf /home/work/bfe/conf/bfe.conf
+COPY conf/log-reader/mod_kafka/kafka_config.data /home/work/log-reader/conf/mod_kafka/kafka_config.data
+
 COPY --from=api /home/work/api-server/api-server /home/work/api-server/api-server
 COPY --from=api /home/work/api-server/conf /home/work/api-server/conf
 COPY --from=api /home/work/api-server/static /home/work/api-server/static
